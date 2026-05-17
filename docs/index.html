@@ -1,0 +1,978 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TP — 클라우드컴퓨팅 텀프로젝트 기획서</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,500;0,9..144,700;0,9..144,900;1,9..144,400&family=JetBrains+Mono:wght@400;500;700&family=Noto+Sans+KR:wght@300;400;500;700;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f4f1ea;
+    --bg-alt: #ebe6da;
+    --ink: #1a1a1a;
+    --ink-soft: #4a4a4a;
+    --ink-mute: #8a8580;
+    --rule: #d4cebf;
+    --accent: #1e4fa8;
+    --accent-soft: #d8e3f4;
+    --highlight: #fef3a6;
+    --code-bg: #1a1a1a;
+    --code-ink: #f4f1ea;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'Noto Sans KR', sans-serif;
+    font-weight: 400;
+    line-height: 1.7;
+    font-size: 16px;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* GRAIN OVERLAY */
+  body::before {
+    content: "";
+    position: fixed; inset: 0;
+    pointer-events: none;
+    z-index: 9999;
+    opacity: 0.06;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+
+  .container { max-width: 980px; margin: 0 auto; padding: 0 32px; }
+
+  /* HEADER */
+  header.masthead {
+    border-bottom: 1px solid var(--ink);
+    padding: 32px 0 24px;
+    margin-bottom: 0;
+  }
+  .masthead-row {
+    display: flex; justify-content: space-between; align-items: baseline;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+  }
+  .masthead-row .dot {
+    display: inline-block; width: 6px; height: 6px;
+    background: var(--accent); border-radius: 50%;
+    margin-right: 8px; vertical-align: middle;
+  }
+
+  /* HERO */
+  .hero {
+    padding: 80px 0 60px;
+    border-bottom: 1px solid var(--ink);
+    position: relative;
+  }
+  .hero-eyebrow {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 32px;
+  }
+  .hero h1 {
+    font-family: 'Fraunces', serif;
+    font-weight: 900;
+    font-size: clamp(56px, 9vw, 120px);
+    line-height: 0.92;
+    letter-spacing: -0.03em;
+    margin-bottom: 32px;
+    font-variation-settings: "opsz" 144;
+  }
+  .hero h1 em {
+    font-style: italic;
+    font-weight: 400;
+    color: var(--accent);
+  }
+  .hero-sub {
+    font-family: 'Fraunces', serif;
+    font-size: 22px;
+    line-height: 1.5;
+    max-width: 620px;
+    color: var(--ink-soft);
+    font-weight: 400;
+  }
+  .hero-meta {
+    margin-top: 48px;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 24px;
+    padding-top: 24px;
+    border-top: 1px dashed var(--rule);
+  }
+  .hero-meta div {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+  .hero-meta div span {
+    display: block;
+    color: var(--ink-mute);
+    margin-bottom: 6px;
+    font-size: 10px;
+  }
+  .hero-meta div strong {
+    color: var(--ink);
+    font-weight: 500;
+    font-size: 13px;
+    letter-spacing: 0.05em;
+  }
+
+  /* SECTIONS */
+  section.chapter {
+    padding: 80px 0 40px;
+    border-bottom: 1px solid var(--rule);
+  }
+  .chapter-num {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.2em;
+    color: var(--accent);
+    text-transform: uppercase;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .chapter-num::before {
+    content: "";
+    display: inline-block;
+    width: 40px;
+    height: 1px;
+    background: var(--accent);
+  }
+  h2.chapter-title {
+    font-family: 'Fraunces', serif;
+    font-weight: 700;
+    font-size: clamp(36px, 5vw, 56px);
+    line-height: 1.05;
+    letter-spacing: -0.02em;
+    margin-bottom: 40px;
+    font-variation-settings: "opsz" 96;
+  }
+  h2.chapter-title em {
+    font-style: italic;
+    font-weight: 400;
+  }
+
+  /* PROSE */
+  .prose p {
+    font-size: 17px;
+    line-height: 1.75;
+    margin-bottom: 20px;
+    color: var(--ink);
+  }
+  .prose p.lead {
+    font-family: 'Fraunces', serif;
+    font-size: 22px;
+    line-height: 1.55;
+    color: var(--ink);
+    margin-bottom: 32px;
+    font-weight: 400;
+  }
+  .prose .highlight {
+    background: linear-gradient(180deg, transparent 60%, var(--highlight) 60%);
+    padding: 0 2px;
+  }
+  .prose strong { font-weight: 700; }
+
+  /* CALLOUT */
+  .callout {
+    background: var(--bg-alt);
+    border-left: 3px solid var(--accent);
+    padding: 24px 28px;
+    margin: 32px 0;
+    font-size: 15px;
+    line-height: 1.7;
+  }
+  .callout-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 8px;
+    display: block;
+  }
+
+  /* TABLE */
+  .table-wrap {
+    margin: 32px 0;
+    border-top: 2px solid var(--ink);
+    border-bottom: 2px solid var(--ink);
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+  }
+  th, td {
+    text-align: left;
+    padding: 16px 14px;
+    border-bottom: 1px solid var(--rule);
+    vertical-align: top;
+  }
+  th {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--ink-mute);
+    border-bottom: 1px solid var(--ink);
+    font-weight: 500;
+  }
+  tr:last-child td { border-bottom: none; }
+  td.mono {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+  }
+  td strong { font-weight: 700; }
+
+  /* LISTS */
+  ul.bare { list-style: none; padding: 0; }
+  ul.bare li {
+    padding: 12px 0;
+    border-bottom: 1px dashed var(--rule);
+    font-size: 16px;
+    display: flex;
+    gap: 16px;
+  }
+  ul.bare li:last-child { border-bottom: none; }
+  ul.bare li::before {
+    content: "→";
+    color: var(--accent);
+    flex-shrink: 0;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  ul.numbered {
+    list-style: none;
+    padding: 0;
+    counter-reset: step;
+  }
+  ul.numbered li {
+    padding: 14px 0 14px 48px;
+    position: relative;
+    counter-increment: step;
+    border-bottom: 1px dashed var(--rule);
+  }
+  ul.numbered li::before {
+    content: counter(step, decimal-leading-zero);
+    position: absolute;
+    left: 0;
+    top: 14px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: var(--accent);
+    font-weight: 700;
+  }
+  ul.numbered li:last-child { border-bottom: none; }
+
+  /* DIAGRAM */
+  .diagram {
+    background: var(--ink);
+    color: var(--bg);
+    padding: 40px 32px;
+    margin: 32px 0;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    line-height: 1.8;
+    border-radius: 2px;
+    overflow-x: auto;
+  }
+  .diagram pre {
+    color: var(--bg);
+    white-space: pre;
+  }
+  .diagram .accent { color: #6ea8ff; }
+  .diagram .label { color: #8a8580; font-style: italic; }
+
+  /* TRACK CARDS */
+  .tracks {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0;
+    margin: 32px 0;
+    border-top: 2px solid var(--ink);
+  }
+  .track {
+    padding: 32px 0;
+    border-bottom: 1px solid var(--rule);
+    display: grid;
+    grid-template-columns: 80px 1fr;
+    gap: 32px;
+  }
+  .track:last-child { border-bottom: 2px solid var(--ink); }
+  .track-id {
+    font-family: 'Fraunces', serif;
+    font-style: italic;
+    font-size: 56px;
+    line-height: 1;
+    font-weight: 300;
+    color: var(--accent);
+  }
+  .track h3 {
+    font-family: 'Fraunces', serif;
+    font-size: 24px;
+    font-weight: 700;
+    margin-bottom: 12px;
+    letter-spacing: -0.01em;
+  }
+  .track p { margin-bottom: 12px; font-size: 15px; }
+  .track .role-meta {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--ink-mute);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px dashed var(--rule);
+  }
+  .track ul.bare li { font-size: 14px; padding: 6px 0; border: none; }
+
+  /* TIMELINE */
+  .timeline {
+    margin: 32px 0;
+    border-top: 2px solid var(--ink);
+  }
+  .timeline-row {
+    display: grid;
+    grid-template-columns: 140px 1fr 100px;
+    gap: 24px;
+    padding: 20px 0;
+    border-bottom: 1px solid var(--rule);
+    align-items: baseline;
+  }
+  .timeline-row:last-child { border-bottom: 2px solid var(--ink); }
+  .timeline-date {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    font-weight: 500;
+  }
+  .timeline-goal { font-size: 15px; }
+  .timeline-tag {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    text-align: right;
+    color: var(--ink-mute);
+  }
+  .timeline-row.milestone {
+    background: var(--accent-soft);
+    padding: 20px 16px;
+    margin: 0 -16px;
+  }
+  .timeline-row.milestone .timeline-date { color: var(--accent); font-weight: 700; }
+  .timeline-row.milestone .timeline-tag { color: var(--accent); font-weight: 700; }
+
+  /* SCOPE BOXES */
+  .scope-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+    margin: 32px 0;
+  }
+  .scope-box {
+    padding: 28px;
+    background: var(--bg-alt);
+    border-top: 3px solid var(--ink);
+  }
+  .scope-box.must { border-top-color: var(--accent); }
+  .scope-box-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--ink-mute);
+    margin-bottom: 8px;
+  }
+  .scope-box.must .scope-box-label { color: var(--accent); }
+  .scope-box h4 {
+    font-family: 'Fraunces', serif;
+    font-size: 20px;
+    margin-bottom: 16px;
+    font-weight: 700;
+  }
+  .scope-box ul { list-style: none; }
+  .scope-box ul li {
+    padding: 8px 0 8px 20px;
+    position: relative;
+    font-size: 14px;
+    line-height: 1.6;
+  }
+  .scope-box ul li::before {
+    content: "—";
+    position: absolute;
+    left: 0;
+    color: var(--ink-mute);
+  }
+
+  /* RISKS */
+  .risk-list { margin: 24px 0; }
+  .risk {
+    padding: 20px 0;
+    border-bottom: 1px solid var(--rule);
+    display: grid;
+    grid-template-columns: 60px 1fr;
+    gap: 24px;
+  }
+  .risk:last-child { border-bottom: none; }
+  .risk-num {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--accent);
+    letter-spacing: 0.1em;
+  }
+  .risk h4 {
+    font-family: 'Fraunces', serif;
+    font-size: 18px;
+    margin-bottom: 6px;
+    font-weight: 700;
+  }
+  .risk p { font-size: 14px; color: var(--ink-soft); }
+
+  /* FOOTER */
+  footer {
+    padding: 80px 0 60px;
+    text-align: center;
+    border-top: 1px solid var(--ink);
+    margin-top: 40px;
+  }
+  footer .quote {
+    font-family: 'Fraunces', serif;
+    font-style: italic;
+    font-size: 24px;
+    line-height: 1.5;
+    color: var(--ink-soft);
+    margin-bottom: 32px;
+    max-width: 600px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+  footer .signoff {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--ink-mute);
+  }
+
+  /* TOC */
+  .toc {
+    position: sticky;
+    top: 20px;
+    padding: 20px 0;
+    margin: 24px 0 0;
+    border-top: 1px dashed var(--rule);
+    border-bottom: 1px dashed var(--rule);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 24px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+  .toc a {
+    color: var(--ink-soft);
+    text-decoration: none;
+    padding: 4px 0;
+    border-bottom: 1px solid transparent;
+    transition: all 0.2s;
+  }
+  .toc a:hover { color: var(--accent); border-bottom-color: var(--accent); }
+
+  @media (max-width: 720px) {
+    .container { padding: 0 20px; }
+    .scope-grid { grid-template-columns: 1fr; }
+    .timeline-row { grid-template-columns: 1fr; gap: 6px; }
+    .timeline-tag { text-align: left; }
+    .hero-meta { grid-template-columns: 1fr; }
+    .track { grid-template-columns: 1fr; gap: 12px; }
+    .track-id { font-size: 40px; }
+  }
+
+  /* FADE IN */
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .hero h1 { animation: fadeUp 0.8s ease-out; }
+  .hero-sub { animation: fadeUp 0.8s ease-out 0.15s backwards; }
+  .hero-meta { animation: fadeUp 0.8s ease-out 0.3s backwards; }
+</style>
+</head>
+<body>
+
+<div class="container">
+
+  <!-- MASTHEAD -->
+  <header class="masthead">
+    <div class="masthead-row">
+      <span><span class="dot"></span>Cloud Computing · Term Project · 2026 Spring</span>
+      <span>Draft</span>
+    </div>
+  </header>
+
+  <!-- HERO -->
+  <section class="hero">
+    <div class="hero-eyebrow">Project Brief / 기획서</div>
+    <h1><em>TP</em></h1>
+    <p class="hero-sub">
+      한 방에 모인 사람들이 mp3를 업로드해 <em style="font-style:italic; color:var(--accent);">같은 시점부터 동시에</em> 같이 듣는 웹 서비스. 그런데 사실 만드는 건 — 확장 가능한 실시간 시스템.
+    </p>
+    <div class="hero-meta">
+      <div><span>Team Size</span><strong>3 Members</strong></div>
+      <div><span>Timeline</span><strong>5/11 → 6/07</strong></div>
+      <div><span>Stack</span><strong>AWS · Docker · Redis</strong></div>
+    </div>
+
+    <nav class="toc">
+      <a href="#thesis">01 · Thesis</a>
+      <a href="#features">02 · Features</a>
+      <a href="#architecture">03 · Architecture</a>
+      <a href="#sync">04 · Sync</a>
+      <a href="#stack">05 · Stack</a>
+      <a href="#scope">06 · Scope</a>
+      <a href="#risks">07 · Risks</a>
+      <a href="#roles">08 · Roles</a>
+      <a href="#timeline">09 · Timeline</a>
+      <a href="#ops">10 · Ops</a>
+      <a href="#github">11 · GitHub</a>
+    </nav>
+  </section>
+
+  <!-- 01 THESIS -->
+  <section class="chapter" id="thesis">
+    <div class="chapter-num">Chapter 01</div>
+    <h2 class="chapter-title">이 프로젝트의 <em>무게중심</em>은 어디에 있는가</h2>
+    <div class="prose">
+      <p class="lead">
+        "음악 같이 듣기"는 표면이다. 메인 디시는 <span class="highlight">수평 확장 가능한 실시간 시스템을 클라우드 위에 올리는 일</span>.
+      </p>
+      <p>
+        음악 재생 자체는 클라우드 컴퓨팅과 직접적 관련이 없다. 단일 서버 웹 앱으로도 충분히 구현 가능하다. 평가 포인트는 그 다음에서 나온다 — 사용자가 늘었을 때 어떻게 서버를 늘리고, 늘어난 서버들이 어떻게 같은 방의 상태를 공유하며, 미디어 파일을 어디에 저장하고, 부하에 어떻게 자동 대응하는가.
+      </p>
+      <div class="callout">
+        <span class="callout-label">North Star</span>
+        발표/보고서의 메인 스토리는 "음악 서비스 만들었어요"가 아니라 <strong>"실시간 시스템을 어떻게 수평 확장했나"</strong>이다.
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th style="width: 28%;">평가 포인트</th>
+              <th>왜 클라우드 컴퓨팅인가</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Multi-EC2 + LB</strong></td>
+              <td>단일 서버는 트래픽·장애에 무력하다. 수평 확장이 클라우드의 출발점.</td>
+            </tr>
+            <tr>
+              <td><strong>Redis Pub/Sub</strong></td>
+              <td>WebSocket은 stateful — 서버가 둘 이상이면 같은 방의 메시지가 끊긴다. 서버 간 중계가 필수.</td>
+            </tr>
+            <tr>
+              <td><strong>S3 Storage</strong></td>
+              <td>EC2 로컬 디스크에 저장하면 다른 서버에선 보이지 않는다. 공유 스토리지가 답.</td>
+            </tr>
+            <tr>
+              <td><strong>Docker</strong></td>
+              <td>어디서나 동일 환경. Auto-scaling의 전제 조건.</td>
+            </tr>
+            <tr>
+              <td><strong>Auto-scaling</strong></td>
+              <td>부하에 따라 자동 증감. 클라우드가 약속한 핵심 가치.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- 02 FEATURES -->
+  <section class="chapter" id="features">
+    <div class="chapter-num">Chapter 02</div>
+    <h2 class="chapter-title">사용자가 <em>마주하는</em> 것</h2>
+    <div class="prose">
+      <ul class="bare">
+        <li>방을 만들고, 룸 코드를 공유해 친구를 초대한다.</li>
+        <li>mp3 파일을 업로드하면 큐에 들어간다.</li>
+        <li>방 안 모두가 같은 시점부터 동시에 듣는다.</li>
+        <li>채팅으로 떠든다.</li>
+        <li>중간에 들어와도 현재 재생 위치부터 자연스럽게 합류한다.</li>
+        <li>일시정지 / 다음곡 / 볼륨 — 기본 컨트롤이 있다.</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- 03 ARCHITECTURE -->
+  <section class="chapter" id="architecture">
+    <div class="chapter-num">Chapter 03</div>
+    <h2 class="chapter-title">시스템 <em>아키텍처</em></h2>
+    <div class="prose">
+      <p>요소 간 관계를 한 장으로 옮기면 이렇게 된다.</p>
+      <div class="diagram">
+<pre>           <span class="label">[ Clients · Browsers ]</span>
+                    │
+                    ▼
+         ┌─────────────────────┐
+         │   <span class="accent">Load Balancer</span>     │  <span class="label">AWS ELB / Nginx</span>
+         └──────────┬──────────┘
+                    │
+         ┌──────────┼──────────┐
+         ▼                     ▼
+   ┌──────────┐         ┌──────────┐
+   │  EC2-1   │         │  EC2-2   │   <span class="label">WS server in Docker</span>
+   └────┬─────┘         └─────┬────┘
+        │                     │
+        └──────────┬──────────┘
+                   ▼
+         ┌─────────────────────┐
+         │  <span class="accent">Redis Pub/Sub</span>      │  <span class="label">cross-server msg</span>
+         └─────────────────────┘
+                   ▲
+                   │
+         ┌─────────────────────┐
+         │       <span class="accent">S3</span>            │  <span class="label">mp3 storage</span>
+         └─────────────────────┘</pre>
+      </div>
+    </div>
+  </section>
+
+  <!-- 04 SYNC -->
+  <section class="chapter" id="sync">
+    <div class="chapter-num">Chapter 04</div>
+    <h2 class="chapter-title">동기화는 <em>이렇게</em> 흐른다</h2>
+    <div class="prose">
+      <p class="lead">단순함이 안정성이다. MSE도, fragmented MP4도 쓰지 않는다. 브라우저 기본 <code style="font-family:'JetBrains Mono',monospace; background:var(--bg-alt); padding:2px 6px;">&lt;audio&gt;</code> 태그만으로 충분하다.</p>
+      <ul class="numbered">
+        <li>누군가 mp3를 업로드한다 → 서버가 S3에 저장하고 URL을 받는다.</li>
+        <li>서버는 모든 클라이언트에게 메시지를 보낸다 — <code style="font-family:'JetBrains Mono',monospace; background:var(--bg-alt); padding:2px 6px; font-size:13px;">{ url, play_at: now + 3s }</code>.</li>
+        <li>각 클라이언트는 mp3를 미리 다운로드한다 (preload).</li>
+        <li>다운로드 완료 → 서버로 <code style="font-family:'JetBrains Mono',monospace; background:var(--bg-alt); padding:2px 6px; font-size:13px;">ready</code> 신호 전송.</li>
+        <li>전원 ready가 되면 서버가 최종 <code style="font-family:'JetBrains Mono',monospace; background:var(--bg-alt); padding:2px 6px; font-size:13px;">play_at</code> 시각을 확정 → 모두 동시에 재생.</li>
+        <li>늦게 합류한 사람은 <code style="font-family:'JetBrains Mono',monospace; background:var(--bg-alt); padding:2px 6px; font-size:13px;">{ url, seek_to: N }</code>으로 위치 맞춰서 재생.</li>
+      </ul>
+      <div class="callout">
+        <span class="callout-label">Trade-off</span>
+        클라이언트별 다운로드 속도 차이로 첫 재생에 0.5~1초 오차가 생길 수 있다. ready 체크 로직이 이를 완화한다. 완벽한 ms 동기화는 목표가 아니다 — "다 같이 듣고 있다"는 체감이 목표다.
+      </div>
+    </div>
+  </section>
+
+  <!-- 05 STACK -->
+  <section class="chapter" id="stack">
+    <div class="chapter-num">Chapter 05</div>
+    <h2 class="chapter-title">기술 <em>스택</em></h2>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th style="width: 30%;">영역</th>
+            <th>기술</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td><strong>프론트엔드</strong></td><td class="mono">HTML · CSS · JS, &lt;audio&gt; 태그</td></tr>
+          <tr><td><strong>백엔드</strong></td><td class="mono">Python (FastAPI + websockets) <span style="color:var(--ink-mute);">or</span> Node.js (Express + ws)</td></tr>
+          <tr><td><strong>실시간 통신</strong></td><td class="mono">WebSocket (WSS)</td></tr>
+          <tr><td><strong>서버 간 메시지</strong></td><td class="mono">Redis Pub/Sub</td></tr>
+          <tr><td><strong>파일 저장</strong></td><td class="mono">AWS S3</td></tr>
+          <tr><td><strong>인프라</strong></td><td class="mono">AWS EC2 · Docker · ELB (또는 Nginx)</td></tr>
+          <tr><td><strong>모니터링</strong></td><td class="mono">CloudWatch <span style="color:var(--ink-mute);">or</span> 자체 대시보드</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- 06 SCOPE -->
+  <section class="chapter" id="scope">
+    <div class="chapter-num">Chapter 06</div>
+    <h2 class="chapter-title">어디까지 <em>만들 것인가</em></h2>
+    <div class="scope-grid">
+      <div class="scope-box must">
+        <div class="scope-box-label">Must Have · 최소 목표</div>
+        <h4>완주를 위한 선</h4>
+        <ul>
+          <li>단일 EC2에 Docker로 웹/WebSocket 서버 띄움</li>
+          <li>mp3 업로드 → S3 저장 → 같은 방에 재생 명령</li>
+          <li>기본 동기화 (시작 신호 + ready 체크)</li>
+          <li>채팅</li>
+          <li>방 생성/참여</li>
+        </ul>
+      </div>
+      <div class="scope-box">
+        <div class="scope-box-label">Should Have · 확장 목표</div>
+        <h4>욕심을 부린다면</h4>
+        <ul>
+          <li>EC2 2대 + Load Balancer + Redis로 멀티 서버</li>
+          <li>컨테이너 부하 모니터링 + Auto-scaling</li>
+          <li>부하 테스트 + 동기화 정확도 측정 리포트</li>
+          <li>늦게 합류 시 자동 위치 동기화</li>
+        </ul>
+      </div>
+    </div>
+    <div class="callout">
+      <span class="callout-label">Demo Plan</span>
+      두 개 브라우저 창을 띄워놓고 같은 곡이 같은 시점에 흐르는 화면 + 한쪽에 부하를 줬을 때 컨테이너가 늘어나는 그래프를 보여주는 게 5~10분 영상의 클라이맥스다.
+    </div>
+  </section>
+
+  <!-- 07 RISKS -->
+  <section class="chapter" id="risks">
+    <div class="chapter-num">Chapter 07</div>
+    <h2 class="chapter-title">예상 <em>리스크</em></h2>
+    <div class="risk-list">
+      <div class="risk">
+        <div class="risk-num">RISK 01</div>
+        <div>
+          <h4>AWS 비용</h4>
+          <p>EC2 여러 대 + LB + Redis 구성은 프리티어를 초과할 수 있다. 개발은 로컬 Docker에서, AWS 배포는 발표 직전 며칠로 압축한다.</p>
+        </div>
+      </div>
+      <div class="risk">
+        <div class="risk-num">RISK 02</div>
+        <div>
+          <h4>WebSocket + LB 조합의 함정</h4>
+          <p>Sticky session 설정이 누락되면 같은 방 유저가 다른 서버에 붙는다. 이 구성에서 며칠을 잡힐 수 있다. 처음부터 가정에 넣고 출발한다.</p>
+        </div>
+      </div>
+      <div class="risk">
+        <div class="risk-num">RISK 03</div>
+        <div>
+          <h4>동기화 정확도의 한계</h4>
+          <p>네트워크 환경에 따라 첫 재생에 오차가 발생한다. "완벽한 ms 싱크"가 목표가 아니라 "체감상 같이 듣는 느낌"이 목표라는 점을 발표에서 명시한다.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 08 ROLES -->
+  <section class="chapter" id="roles">
+    <div class="chapter-num">Chapter 08</div>
+    <h2 class="chapter-title">3명, <em>세 갈래</em>로</h2>
+    <div class="prose">
+      <p>의존성이 적은 세 개의 트랙. 한 명이 막혀도 다른 두 명의 작업은 멈추지 않는다.</p>
+    </div>
+    <div class="tracks">
+
+      <div class="track">
+        <div class="track-id">A</div>
+        <div>
+          <h3>Frontend & Client Logic</h3>
+          <ul class="bare">
+            <li>웹 UI — 방 생성/참여, 채팅, 플레이어</li>
+            <li>&lt;audio&gt; 제어, ready 신호, seek 동기화</li>
+            <li>업로드 UI, 큐 표시</li>
+          </ul>
+          <div class="role-meta">필요 역량 · HTML/CSS/JS · 약간의 프레임워크 경험</div>
+        </div>
+      </div>
+
+      <div class="track">
+        <div class="track-id">B</div>
+        <div>
+          <h3>Backend & Realtime</h3>
+          <ul class="bare">
+            <li>WebSocket 서버 — 방 관리, 라우팅, 브로드캐스트</li>
+            <li>Redis Pub/Sub 연동</li>
+            <li>S3 업로드 API</li>
+            <li>동기화 프로토콜 설계</li>
+          </ul>
+          <div class="role-meta">필요 역량 · 서버 개발 · 비동기 프로그래밍 이해</div>
+        </div>
+      </div>
+
+      <div class="track">
+        <div class="track-id">C</div>
+        <div>
+          <h3>Infra & DevOps</h3>
+          <ul class="bare">
+            <li>Docker 이미지 빌드 (프론트/백/Redis)</li>
+            <li>AWS 셋팅 — EC2, S3, ELB, IAM</li>
+            <li>docker-compose 로컬 환경</li>
+            <li>Auto-scaling 설정 + 부하 테스트</li>
+            <li>모니터링 대시보드 / 측정 리포트</li>
+          </ul>
+          <div class="role-meta">필요 역량 · 리눅스/네트워크 기초 · AWS 경험 (없어도 가능)</div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- 09 TIMELINE -->
+  <section class="chapter" id="timeline">
+    <div class="chapter-num">Chapter 09</div>
+    <h2 class="chapter-title"><em>타임라인</em></h2>
+    <div class="timeline">
+      <div class="timeline-row">
+        <div class="timeline-date">~ 5/17</div>
+        <div class="timeline-goal">각자 트랙 환경 셋팅, 더미 데이터로 통신 확인</div>
+        <div class="timeline-tag">Setup</div>
+      </div>
+      <div class="timeline-row milestone">
+        <div class="timeline-date">5/24 23:55</div>
+        <div class="timeline-goal"><strong>제안서 제출</strong> + 최소 기능 통합 (한 방에서 한 노래 같이 듣기)</div>
+        <div class="timeline-tag">Submit</div>
+      </div>
+      <div class="timeline-row">
+        <div class="timeline-date">~ 5/31</div>
+        <div class="timeline-goal">멀티 서버 + Redis 통합, 확장 목표 작업 시작</div>
+        <div class="timeline-tag">Scale</div>
+      </div>
+      <div class="timeline-row">
+        <div class="timeline-date">~ 6/4</div>
+        <div class="timeline-goal">기능 동결 (freeze), 버그 수정 · 데모 영상 촬영 · 보고서 작성</div>
+        <div class="timeline-tag">Freeze</div>
+      </div>
+      <div class="timeline-row milestone">
+        <div class="timeline-date">6/7 23:55</div>
+        <div class="timeline-goal"><strong>최종 제출</strong> — project.zip · report.pdf · presentation.pdf · introduction-and-demo.mp4</div>
+        <div class="timeline-tag">Final</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 10 OPS -->
+  <section class="chapter" id="ops">
+    <div class="chapter-num">Chapter 10</div>
+    <h2 class="chapter-title">팀이 <em>굴러가는 법</em></h2>
+    <div class="prose">
+      <p><strong>도구.</strong> GitHub (코드 + Issues), Discord 또는 카톡 (일상), Notion 또는 Google Docs (문서), Figma 또는 그림판 (와이어프레임).</p>
+      <p><strong>브랜치.</strong> <code style="font-family:'JetBrains Mono',monospace; background:var(--bg-alt); padding:2px 6px;">main</code> = 발표용 안정 / <code style="font-family:'JetBrains Mono',monospace; background:var(--bg-alt); padding:2px 6px;">dev</code> = 통합 / 각자 <code style="font-family:'JetBrains Mono',monospace; background:var(--bg-alt); padding:2px 6px;">feature/이름-기능</code> 브랜치 → dev로 PR.</p>
+      <p><strong>미팅.</strong> 주 2회, 30분~1시간. 진행상황 / 막힌 부분 / 다음 주 계획. 회의록은 Notion에 남긴다.</p>
+      <p><strong>의사결정.</strong> 스택·스코프 변경 = 3명 모두 동의. 작은 디테일 = 담당자 결정 + 채널 공유.</p>
+      <div class="callout">
+        <span class="callout-label">24시간 룰</span>
+        혼자 24시간 이상 막혀 있지 않는다. 학부 팀플이 망하는 가장 흔한 패턴은 한 명이 막혀서 침묵하는 것이다. 막히면 말한다 — 자존심보다 마감이 가깝다.
+      </div>
+    </div>
+  </section>
+
+  <!-- 11 GITHUB -->
+  <section class="chapter" id="github">
+    <div class="chapter-num">Chapter 11</div>
+    <h2 class="chapter-title">GitHub은 <em>이렇게</em> 쓴다</h2>
+    <div class="prose">
+      <p class="lead">처음에 한 번 정해두지 않으면 main 브랜치가 박살난다. 이 챕터는 우리 팀 규칙이다.</p>
+
+      <p><strong>레포 주소.</strong> <code style="font-family:'JetBrains Mono',monospace; background:var(--bg-alt); padding:2px 6px;">github.com/happyAF/CCTP</code></p>
+
+      <h3 style="font-family:'Fraunces',serif; font-size:24px; margin: 32px 0 16px; font-weight:700;">브랜치 구조</h3>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th style="width:22%;">브랜치</th>
+              <th>용도</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td class="mono"><strong>main</strong></td><td>발표용 안정 버전. 직접 push 금지. dev에서 PR로만 머지.</td></tr>
+            <tr><td class="mono"><strong>dev</strong></td><td>통합 작업 브랜치. 각자 feature 브랜치에서 PR로 머지.</td></tr>
+            <tr><td class="mono"><strong>feature/이름-내용</strong></td><td>각자 작업 브랜치. 예: <code style="font-family:'JetBrains Mono',monospace; background:var(--bg-alt); padding:2px 6px;">feature/wonjae-upload-ui</code></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3 style="font-family:'Fraunces',serif; font-size:24px; margin: 32px 0 16px; font-weight:700;">폴더 규칙</h3>
+      <p>각자 자기 트랙 폴더 안에서만 작업한다. 다른 트랙 폴더를 건드려야 하면 미리 디코에 공유.</p>
+      <div class="table-wrap">
+        <table>
+          <tbody>
+            <tr><td class="mono"><strong>frontend/</strong></td><td>Track A — 웹 UI, 클라이언트 로직</td></tr>
+            <tr><td class="mono"><strong>backend/</strong></td><td>Track B — WebSocket, API</td></tr>
+            <tr><td class="mono"><strong>infra/</strong></td><td>Track C — Docker, AWS, 배포 스크립트</td></tr>
+            <tr><td class="mono"><strong>docs/</strong></td><td>공동 — 제안서, 회의록, 다이어그램</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3 style="font-family:'Fraunces',serif; font-size:24px; margin: 32px 0 16px; font-weight:700;">작업 흐름</h3>
+      <ul class="numbered">
+        <li><strong>최신 dev 받기</strong><br><code style="font-family:'JetBrains Mono',monospace; background:var(--bg-alt); padding:2px 6px; font-size:13px;">git checkout dev && git pull</code></li>
+        <li><strong>feature 브랜치 따기</strong><br><code style="font-family:'JetBrains Mono',monospace; background:var(--bg-alt); padding:2px 6px; font-size:13px;">git checkout -b feature/내이름-작업내용</code></li>
+        <li><strong>작업 + 커밋</strong> — 한 기능 단위로 자주 커밋. "완성"까지 기다리지 말기.</li>
+        <li><strong>push</strong><br><code style="font-family:'JetBrains Mono',monospace; background:var(--bg-alt); padding:2px 6px; font-size:13px;">git push -u origin feature/내이름-작업내용</code></li>
+        <li><strong>GitHub에서 Pull Request</strong> 생성 → 대상은 <code style="font-family:'JetBrains Mono',monospace; background:var(--bg-alt); padding:2px 6px; font-size:13px;">dev</code> 브랜치</li>
+        <li><strong>다른 팀원 1명 리뷰</strong> → 승인되면 머지. 본인이 직접 머지 X.</li>
+      </ul>
+
+      <h3 style="font-family:'Fraunces',serif; font-size:24px; margin: 32px 0 16px; font-weight:700;">커밋 메시지</h3>
+      <p>한국어든 영어든 상관없지만 <strong>"뭘 했는지"는 명확히</strong>. "수정", "업데이트" 같은 거 금지.</p>
+      <div class="callout">
+        <span class="callout-label">Good</span>
+        <code style="font-family:'JetBrains Mono',monospace;">방 생성 API 추가</code><br>
+        <code style="font-family:'JetBrains Mono',monospace;">fix: WebSocket 재연결 시 방 목록 안 나오던 버그</code><br>
+        <code style="font-family:'JetBrains Mono',monospace;">infra: docker-compose에 redis 추가</code><br><br>
+        <span class="callout-label" style="margin-top:8px;">Bad</span>
+        <code style="font-family:'JetBrains Mono',monospace;">수정</code> · <code style="font-family:'JetBrains Mono',monospace;">업데이트</code> · <code style="font-family:'JetBrains Mono',monospace;">ㅁㄴㅇㄹ</code>
+      </div>
+
+      <h3 style="font-family:'Fraunces',serif; font-size:24px; margin: 32px 0 16px; font-weight:700;">PR 규칙</h3>
+      <ul class="bare">
+        <li>제목에 트랙 prefix — <code style="font-family:'JetBrains Mono',monospace; background:var(--bg-alt); padding:2px 6px;">[FE]</code> / <code style="font-family:'JetBrains Mono',monospace; background:var(--bg-alt); padding:2px 6px;">[BE]</code> / <code style="font-family:'JetBrains Mono',monospace; background:var(--bg-alt); padding:2px 6px;">[INFRA]</code></li>
+        <li>본문에 "뭘 했는지 + 어떻게 테스트했는지" 3~5줄로</li>
+        <li>리뷰는 24시간 안에. 자기 트랙 PR이 아니어도 한 번 훑어보기.</li>
+        <li>충돌나면 본인이 해결 — dev를 자기 브랜치로 머지하거나 rebase 후 다시 push.</li>
+      </ul>
+
+      <h3 style="font-family:'Fraunces',serif; font-size:24px; margin: 32px 0 16px; font-weight:700;">Issues 활용</h3>
+      <p>할 일 / 버그 / 아이디어는 GitHub Issues에 기록한다. 디코에서만 얘기하고 끝내지 말기 — 회의 끝나면 사라진다.</p>
+      <ul class="bare">
+        <li>제목에 트랙 prefix — <code style="font-family:'JetBrains Mono',monospace; background:var(--bg-alt); padding:2px 6px;">[FE]</code>, <code style="font-family:'JetBrains Mono',monospace; background:var(--bg-alt); padding:2px 6px;">[BE]</code>, <code style="font-family:'JetBrains Mono',monospace; background:var(--bg-alt); padding:2px 6px;">[INFRA]</code></li>
+        <li>본인 작업은 본인한테 Assign</li>
+        <li>PR 본문에 <code style="font-family:'JetBrains Mono',monospace; background:var(--bg-alt); padding:2px 6px;">Closes #12</code> 식으로 적으면 머지될 때 이슈 자동 닫힘</li>
+      </ul>
+
+      <h3 style="font-family:'Fraunces',serif; font-size:24px; margin: 32px 0 16px; font-weight:700;">올리지 말 것</h3>
+      <div class="callout">
+        <span class="callout-label">절대 커밋 금지</span>
+        AWS 키 · 비밀번호 · API 토큰 · <code style="font-family:'JetBrains Mono',monospace;">.env</code> 파일 · <code style="font-family:'JetBrains Mono',monospace;">*.pem</code>. 한 번 push되면 GitHub 히스토리에 영원히 남는다. 한 번이라도 실수했으면 즉시 채널에 공유 + 키 폐기.
+      </div>
+      <p>비밀값은 <code style="font-family:'JetBrains Mono',monospace; background:var(--bg-alt); padding:2px 6px;">.env</code>에 두고 <code style="font-family:'JetBrains Mono',monospace; background:var(--bg-alt); padding:2px 6px;">.env.example</code>만 올린다 (값 비운 채로). 실제 값은 디코 비밀 채널이나 별도 채널로 공유.</p>
+
+      <h3 style="font-family:'Fraunces',serif; font-size:24px; margin: 32px 0 16px; font-weight:700;">최종 제출 흐름</h3>
+      <ul class="numbered">
+        <li>6/4 freeze 시점에 dev → main 머지</li>
+        <li>main에서 Release 태그 만들기 (예: <code style="font-family:'JetBrains Mono',monospace; background:var(--bg-alt); padding:2px 6px;">final</code>)</li>
+        <li>Repo zip 다운로드 → <code style="font-family:'JetBrains Mono',monospace; background:var(--bg-alt); padding:2px 6px;">project.zip</code>으로 PLATO 제출</li>
+        <li>README.md를 PDF로 출력 → <code style="font-family:'JetBrains Mono',monospace; background:var(--bg-alt); padding:2px 6px;">report.pdf</code></li>
+      </ul>
+
+      <div class="callout" style="margin-top: 32px;">
+        <span class="callout-label">막히면</span>
+        Git/GitHub 명령어가 막히면 디코 #질문-도움 채널에. 혼자 google하다 1시간 날리지 말기. 누군가는 알고 있다.
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<footer>
+  <div class="container">
+    <p class="quote">
+      "음악 같이 듣기" 위에 클라우드 인프라를 얹는 게 아니라, 클라우드 인프라를 "음악 같이 듣기"로 보여주는 것.
+    </p>
+    <p class="signoff">Cloud Computing · Term Project</p>
+  </div>
+</footer>
+
+</body>
+</html>
