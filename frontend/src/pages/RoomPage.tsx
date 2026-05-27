@@ -6,11 +6,11 @@ import NowPlaying from '../components/NowPlaying'
 import Library from '../components/Library'
 
 const MOCK_LIBRARY: Track[] = [
-  { id: '1', title: 'lofi study beats vol.1', uploaderNick: '별이', durationSec: 214 },
-  { id: '2', title: 'rainy day jazz', uploaderNick: '민준', durationSec: 187 },
-  { id: '3', title: 'chill hop afternoon', uploaderNick: '유진', durationSec: 243 },
-  { id: '4', title: 'pixel world bgm', uploaderNick: '별이', durationSec: 165 },
-  { id: '5', title: 'café window seat', uploaderNick: '민준', durationSec: 298 },
+  { id: '1', title: 'lofi study beats vol.1', uploaderNick: '별이', durationSec: 214, s3Key:'' },
+  { id: '2', title: 'rainy day jazz', uploaderNick: '민준', durationSec: 187 ,s3Key:''},
+  { id: '3', title: 'chill hop afternoon', uploaderNick: '유진', durationSec: 243, s3Key:'' },
+  { id: '4', title: 'pixel world bgm', uploaderNick: '별이', durationSec: 165 , s3Key:''},
+  { id: '5', title: 'café window seat', uploaderNick: '민준', durationSec: 298, s3Key:'' },
 ]
 
 const MOCK_PARTICIPANTS = [
@@ -90,6 +90,7 @@ export default function RoomPage() {
       title: file.name.replace(/\.mp3$/i, ''),
       uploaderNick: myNick,
       durationSec: 200,
+      s3Key: ''
     }
     setRoom((prev) => ({ ...prev, library: [...prev.library, newTrack] }))
   }
@@ -113,7 +114,7 @@ export default function RoomPage() {
         color: 'var(--text-sub)',
       }}>
         <span style={{ color: 'var(--text-main)', fontWeight: 'bold', fontSize: '13px' }}>
-          ♪ 함께 듣는 작은 방
+          ♪ 함께 듣는 음악
         </span>
         <span>/</span>
         <span>

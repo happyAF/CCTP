@@ -60,7 +60,7 @@ export default function EntryPage() {
           borderBottom: '1px solid var(--border-soft)',
           letterSpacing: '1px',
         }}>
-          ♪ 함께 듣는 작은 방
+          ♪ 함께 듣는 음악
         </div>
 
         {/* 닉네임 */}

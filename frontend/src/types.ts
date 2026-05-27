@@ -3,6 +3,7 @@ export interface Track {
   title: string;
   uploaderNick: string;
   durationSec: number;
+  s3Key: string; // presigned GET URL 발급용 (예: "uploads/1234567890_lofi.mp3")
 }
 
 export interface Participant {
