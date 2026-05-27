@@ -84,13 +84,30 @@ export default function RoomPage() {
   function handleSwitch(track: Track) {
     setRoom((prev) => ({ ...prev, nowPlaying: track, progressSec: 0, isPlaying: true }))
   }
-  function handleUpload(file: File) {
+  async function handleUpload(file: File) {
+    const apiUrl = import.meta.env.VITE_API_URL ?? 'http://localhost:3000'
+
+    // 1. 백엔드에서 S3 presigned PUT URL 발급
+    const res = await fetch(`${apiUrl}/api/upload-url?filename=${encodeURIComponent(file.name)}`)
+    if (!res.ok) throw new Error('upload-url 발급 실패')
+    const { uploadUrl } = await res.json() as { uploadUrl: string }
+
+    // 2. S3에 직접 PUT 업로드
+    const putRes = await fetch(uploadUrl, {
+      method: 'PUT',
+      body: file,
+      headers: { 'Content-Type': 'audio/mpeg' },
+    })
+    if (!putRes.ok) throw new Error('S3 업로드 실패')
+
+    // 3. presigned URL 경로에서 s3Key 추출 후 라이브러리에 추가
+    const s3Key = new URL(uploadUrl).pathname.slice(1)
     const newTrack: Track = {
       id: Date.now().toString(),
       title: file.name.replace(/\.mp3$/i, ''),
       uploaderNick: myNick,
-      durationSec: 200,
-      s3Key: ''
+      durationSec: 0,
+      s3Key,
     }
     setRoom((prev) => ({ ...prev, library: [...prev.library, newTrack] }))
   }

@@ -5,7 +5,7 @@ interface Props {
   roomCode: string
   participants: Participant[]
   myNick: string
-  onUpload: (file: File) => void
+  onUpload: (file: File) => Promise<void>
 }
 
 export default function Sidebar({ roomCode, participants, myNick, onUpload }: Props) {
@@ -13,19 +13,27 @@ export default function Sidebar({ roomCode, participants, myNick, onUpload }: Pr
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [popup, setPopup] = useState<string | null>(null)
   const [zoneHovered, setZoneHovered] = useState(false)
+  const [uploading, setUploading] = useState(false)
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     setSelectedFile(e.target.files?.[0] ?? null)
   }
 
-  function handleUpload() {
-    if (!selectedFile) return
+  async function handleUpload() {
+    if (!selectedFile || uploading) return
     const name = selectedFile.name.replace(/\.mp3$/i, '')
-    onUpload(selectedFile)
-    setSelectedFile(null)
-    if (fileInputRef.current) fileInputRef.current.value = ''
-    setPopup(`♪ "${name}" 추가됐어요!`)
-    setTimeout(() => setPopup(null), 2500)
+    setUploading(true)
+    try {
+      await onUpload(selectedFile)
+      setSelectedFile(null)
+      if (fileInputRef.current) fileInputRef.current.value = ''
+      setPopup(`♪ "${name}" 추가됐어요!`)
+    } catch {
+      setPopup('업로드 실패. 다시 시도해 주세요.')
+    } finally {
+      setUploading(false)
+      setTimeout(() => setPopup(null), 2500)
+    }
   }
 
   function copyCode() {
@@ -174,19 +182,20 @@ export default function Sidebar({ roomCode, participants, myNick, onUpload }: Pr
                 <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
                   <button
                     type="button"
+                    disabled={uploading}
                     style={{
                       fontFamily: 'var(--font-pixel)',
                       fontSize: '11px',
                       padding: '3px 10px',
-                      background: 'var(--accent-blue)',
+                      background: uploading ? 'var(--bg-soft)' : 'var(--accent-blue)',
                       border: '1px solid #6EC9D8',
                       color: 'var(--text-main)',
-                      cursor: 'pointer',
+                      cursor: uploading ? 'not-allowed' : 'pointer',
                       whiteSpace: 'nowrap',
                     }}
                     onClick={handleUpload}
                   >
-                    업로드 ▲
+                    {uploading ? '업로드 중…' : '업로드 ▲'}
                   </button>
                 </div>
               </div>
