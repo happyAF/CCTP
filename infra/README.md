@@ -29,7 +29,8 @@ Docker, AWS, 배포 담당.
 
 ### 🚧 다음 미팅 후 (B/A 합의 필요)
 - [ ] 백엔드 Dockerfile (B가 언어 정해야 함 — Python/Node)
-- [ ] 프론트엔드 Dockerfile (A가 빌드 도구 정해야 함)
+- [x] 프론트엔드 빌드 방식 확정 → **아래 "프론트엔드 빌드 방식" 섹션 참조**
+- [ ] 프론트엔드 Dockerfile 작성 (방식 확정됐으니 C가 작성 가능)
 - [ ] `docker-compose.yml` 작성
 
 ### 📋 그 다음
@@ -127,8 +128,53 @@ aws s3 rm s3://cctp-media-happyaf/<S3경로>
 
 ---
 
+## 프론트엔드 빌드 방식 ✅ 확정
+
+| 항목 | 값 |
+|---|---|
+| 프레임워크 | React 18 + TypeScript |
+| 빌드 도구 | Vite 5 |
+| 빌드 명령 | `npm run build` (`tsc && vite build`) |
+| 산출물 위치 | `frontend/dist/` |
+| 서빙 방식 | nginx 정적 파일 서빙 (`dist/` 폴더를 document root로) |
+| 컨테이너 포트 | 80 (nginx 기본) |
+
+### 프론트엔드 Dockerfile 참고 구조
+
+```dockerfile
+# 1단계: 빌드
+FROM node:20-alpine AS builder
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci
+COPY . .
+RUN npm run build
+
+# 2단계: nginx 서빙
+FROM nginx:alpine
+COPY --from=builder /app/dist /usr/share/nginx/html
+# SPA 라우팅 지원 (react-router-dom) — /room/:roomCode 같은 경로 처리
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+EXPOSE 80
+```
+
+`nginx.conf` (SPA용 — 404를 index.html로 fallback):
+```nginx
+server {
+    listen 80;
+    root /usr/share/nginx/html;
+    index index.html;
+
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+}
+```
+
+---
+
 ## 회의 때 결정 필요한 사항
 
 1. **백엔드 언어** — Python (FastAPI) vs Node.js (Express)
-2. **프론트엔드 빌드 방식** — vanilla JS (nginx 정적) vs React (빌드 후 nginx)
-3. **로컬 개발 시 docker-compose 구조** — 위 두 결정 후
+2. ~~**프론트엔드 빌드 방식**~~ — ✅ 확정 (위 섹션 참조)
+3. **로컬 개발 시 docker-compose 구조** — 백엔드 언어 결정 후
