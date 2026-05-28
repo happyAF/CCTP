@@ -26,14 +26,13 @@ Docker, AWS, 배포 담당.
 - [x] S3 업로드 동작 확인
 - [x] Docker Desktop 설치
 - [x] Docker 동작 확인 (nginx 테스트)
-
-### ✅ 완료 (5/25)
 - [x] **백엔드 Dockerfile 작성** (`backend/Dockerfile`)
 - [x] **`.dockerignore` 작성** — `node_modules`, `.env` 등 제외
 - [x] **백엔드 이미지 빌드 성공** (`cctp-backend:latest`)
 - [x] **컨테이너 실행 + AWS 연동 통합 동작 확인**
   - `docker run -p 3000:3000 --env-file .env cctp-backend`
   - `GET /api/upload-url?filename=test.mp3` → S3 Presigned URL 정상 발급
+- [x] 프론트엔드 빌드 방식 확정 → **아래 "프론트엔드 빌드 방식" 섹션 참조**
 
 ### 🚧 다음 작업
 - [ ] 프론트엔드 Dockerfile (A가 빌드 도구 정해야 함)
@@ -165,8 +164,53 @@ aws s3 rm s3://cctp-media-happyaf/<S3경로>
 
 ---
 
+## 프론트엔드 빌드 방식 ✅ 확정
+
+| 항목 | 값 |
+|---|---|
+| 프레임워크 | React 18 + TypeScript |
+| 빌드 도구 | Vite 5 |
+| 빌드 명령 | `npm run build` (`tsc && vite build`) |
+| 산출물 위치 | `frontend/dist/` |
+| 서빙 방식 | nginx 정적 파일 서빙 (`dist/` 폴더를 document root로) |
+| 컨테이너 포트 | 80 (nginx 기본) |
+
+### 프론트엔드 Dockerfile 참고 구조
+
+```dockerfile
+# 1단계: 빌드
+FROM node:20-alpine AS builder
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci
+COPY . .
+RUN npm run build
+
+# 2단계: nginx 서빙
+FROM nginx:alpine
+COPY --from=builder /app/dist /usr/share/nginx/html
+# SPA 라우팅 지원 (react-router-dom) — /room/:roomCode 같은 경로 처리
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+EXPOSE 80
+```
+
+`nginx.conf` (SPA용 — 404를 index.html로 fallback):
+```nginx
+server {
+    listen 80;
+    root /usr/share/nginx/html;
+    index index.html;
+
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+}
+```
+
+---
+
 ## 회의 때 결정 필요한 사항
 
-1. **프론트엔드 빌드 방식** — vanilla JS (nginx 정적) vs React (빌드 후 nginx) → Dockerfile 작성 가능해짐
-2. **docker-compose 구조** — 위 결정 후 바로 작성 가능
-3. **S3 CORS 설정 시점** — A가 프론트에서 직접 PUT 호출 시작하면 그 전에
+1. **백엔드 언어** — Python (FastAPI) vs Node.js (Express)
+2. ~~**프론트엔드 빌드 방식**~~ — ✅ 확정 (위 섹션 참조)
+3. **로컬 개발 시 docker-compose 구조** — 백엔드 언어 결정 후
