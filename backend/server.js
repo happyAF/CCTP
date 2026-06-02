@@ -1,10 +1,12 @@
 require('dotenv').config();
 const express = require('express');
 const http = require('http');
-const { Server } = require('socket.io'); 
+const { Server } = require('socket.io');
 const cors = require('cors');
 const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
 const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
+const { createClient } = require('redis');
+const { createAdapter } = require('@socket.io/redis-adapter');
 
 const app = express();
 app.use(cors());
@@ -14,10 +16,17 @@ const server = http.createServer(app);
 
 const io = new Server(server, {
   cors: {
-    origin: "*", 
+    origin: "*",
     methods: ["GET", "POST"]
   }
 });
+
+// ── Redis 클라이언트 ──
+const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379';
+// pubClient: 발행(publish) + 일반 명령(HSET/HGET 등)에 사용
+// subClient: 구독(subscribe) 전용 (어댑터가 다른 서버의 emit을 수신)
+const pubClient = createClient({ url: REDIS_URL });
+const subClient = pubClient.duplicate();
 
 // S3 클라이언트 세팅
 const s3Client = new S3Client({
@@ -32,7 +41,7 @@ const s3Client = new S3Client({
 app.get('/api/upload-url', async (req, res) => {
   try {
     // 프론트에서 보낼 파일 이름
-    const { filename } = req.query; 
+    const { filename } = req.query;
 
     // S3에 이 이름으로 파일을 올리겠다는 명령서 작성
     const command = new PutObjectCommand({
@@ -50,169 +59,270 @@ app.get('/api/upload-url', async (req, res) => {
   }
 });
 
-// ── 방 상태 저장소 (메모리 인메모리, 추후 Redis로 교체 가능) ──
-// roomCode → roomState 매핑
-const rooms = new Map()
+// ── Redis 방 상태 헬퍼 (HSET/HGET) ──
+// room:{roomCode}              (HASH) 재생 상태: library, nowPlayingId, isPlaying, startedAt, progressAtPause
+// room:{roomCode}:participants (HASH) socketId → JSON({ nick, isOwner })
+const ROOM_TTL = 60 * 60 * 24; // 24시간: 미사용 방 자동 만료 (좀비 키 방지)
 
-// 새 방 상태 초기화 헬퍼
-function createRoom(roomCode) {
+const roomKey = (roomCode) => `room:${roomCode}`;
+const participantsKey = (roomCode) => `room:${roomCode}:participants`;
+
+// 방 재생 상태 읽기 (HGETALL) — 방이 없으면 null
+async function getRoomState(roomCode) {
+  const data = await pubClient.hGetAll(roomKey(roomCode));
+  if (!data || Object.keys(data).length === 0) return null;
   return {
     roomCode,
-    participants: [],   
-    // 태스트용
-    library: [{ id: '1', title: 'lofi study beats vol.1', durationSec: 214 }], 
-    nowPlaying: { id: '1', title: 'lofi study beats vol.1', durationSec: 214 },
-    isPlaying: true, 
-    startedAt: Date.now(), 
-    progressAtPause: null, 
-    autoAdvanceTimer: null, 
-  }
+    library: JSON.parse(data.library || '[]'),
+    nowPlayingId: data.nowPlayingId || null,
+    isPlaying: data.isPlaying === '1',
+    startedAt: data.startedAt ? Number(data.startedAt) : null,
+    progressAtPause: data.progressAtPause ? Number(data.progressAtPause) : null,
+  };
 }
 
-io.on('connection', (socket) => {
+// 방 재생 상태 저장 (HSET) — 전체 필드를 한 번에 기록
+async function saveRoomState(roomCode, state) {
+  await pubClient.hSet(roomKey(roomCode), {
+    library: JSON.stringify(state.library ?? []),
+    nowPlayingId: state.nowPlayingId ?? '',
+    isPlaying: state.isPlaying ? '1' : '0',
+    startedAt: state.startedAt != null ? String(state.startedAt) : '',
+    progressAtPause: state.progressAtPause != null ? String(state.progressAtPause) : '',
+  });
+  await pubClient.expire(roomKey(roomCode), ROOM_TTL);
+}
+
+// 방이 없으면 초기 상태 생성
+async function ensureRoom(roomCode) {
+  if (await pubClient.exists(roomKey(roomCode))) return;
+  await saveRoomState(roomCode, {
+    // TODO: 테스트용 더미 트랙. 추후 upload_done으로만 채우도록 변경 예정
+    library: [{ id: '1', title: 'lofi study beats vol.1', durationSec: 214 }],
+    nowPlayingId: '1',
+    isPlaying: true,
+    startedAt: Date.now(),
+    progressAtPause: null,
+  });
+}
+
+// 참여자 추가 (HSET) — 첫 입장자를 방장으로
+async function addParticipant(roomCode, socketId, nick) {
+  const key = participantsKey(roomCode);
+  // 원자적 방장 선점: ownerId 필드가 비어있을 때만 세팅됨 (HSETNX).
+  // 동시 입장 시에도 정확히 한 명만 1을 돌려받아 race condition 방지.
+  const claimed = await pubClient.hSetNX(roomKey(roomCode), 'ownerId', socketId);
+  const isOwner = Boolean(claimed);
+  await pubClient.hSet(key, socketId, JSON.stringify({ nick, isOwner }));
+  await pubClient.expire(key, ROOM_TTL);
+  return isOwner;
+}
+
+// 참여자 제거 (HDEL)
+async function removeParticipant(roomCode, socketId) {
+  await pubClient.hDel(participantsKey(roomCode), socketId);
+}
+
+// 참여자 목록 (HGETALL)
+async function getParticipants(roomCode) {
+  const map = await pubClient.hGetAll(participantsKey(roomCode));
+  return Object.entries(map).map(([id, v]) => ({ id, ...JSON.parse(v) }));
+}
+
+// nowPlaying 전체 객체 (library에서 id로 조회)
+function resolveNowPlaying(state) {
+  if (!state.nowPlayingId) return null;
+  return state.library.find((t) => t.id === state.nowPlayingId) ?? null;
+}
+
+io.on('connection', async (socket) => {
   // 연결 시 쿼리파라미터에서 roomCode, nick 추출
-  const { roomCode, nick } = socket.handshake.query
+  const { roomCode, nick } = socket.handshake.query;
 
   // ── 방 입장 처리 ──
-  if (!rooms.has(roomCode)) rooms.set(roomCode, createRoom(roomCode))
-  const room = rooms.get(roomCode)
-  const isOwner = room.participants.length === 0
-  room.participants.push({ id: socket.id, nick, isOwner })
-  socket.join(roomCode)
-  console.log(`🟢 [${nick}] 입장 → 방 [${roomCode}] (현재 ${room.participants.length}명)`)
+  await ensureRoom(roomCode);
+  const isOwner = await addParticipant(roomCode, socket.id, nick);
+  socket.join(roomCode);
+
+  const state = await getRoomState(roomCode);
+  const participants = await getParticipants(roomCode);
+  console.log(`🟢 [${nick}] 입장 → 방 [${roomCode}] (현재 ${participants.length}명)${isOwner ? ' 👑방장' : ''}`);
 
   // 입장 직후 본인에게만 현재 방 전체 상태 전송 (중간 진입자 동기화 핵심)
   socket.emit('room_state', {
     selfId: socket.id,
     roomCode,
-    participants: room.participants,
-    library: room.library,
-    nowPlaying: room.nowPlaying,
-    isPlaying: room.isPlaying,
-    startedAt: room.startedAt,
-    progressAtPause: room.progressAtPause,
-  })
+    participants,
+    library: state.library,
+    nowPlaying: resolveNowPlaying(state),
+    isPlaying: state.isPlaying,
+    startedAt: state.startedAt,
+    progressAtPause: state.progressAtPause,
+  });
 
   // 방 전체에 참여자 목록 업데이트 브로드캐스트
-  io.to(roomCode).emit('participant_update', { participants: room.participants })
+  io.to(roomCode).emit('participant_update', { participants });
 
   // ── play 이벤트 ──
-  socket.on('play', () => {
-    console.log(`▶️  [${nick}] play → 방 [${roomCode}]`)
-    if (!room.nowPlaying) return
+  socket.on('play', async () => {
+    console.log(`▶️  [${nick}] play → 방 [${roomCode}]`);
+    const s = await getRoomState(roomCode);
+    if (!s || !s.nowPlayingId) return;
     // 일시정지 상태에서 재개: 멈췄던 위치부터 시작하도록 startedAt 역산
-    room.startedAt = Date.now() - (room.progressAtPause ?? 0) * 1000
-    room.isPlaying = true
-    room.progressAtPause = null
-    scheduleAutoAdvance(room) // 곡 자동 전환 타이머 재설정
+    const startedAt = Date.now() - (s.progressAtPause ?? 0) * 1000;
+    await saveRoomState(roomCode, { ...s, isPlaying: true, startedAt, progressAtPause: null });
+    scheduleAutoAdvance(roomCode);
     io.to(roomCode).emit('playback_sync', {
       isPlaying: true,
-      startedAt: room.startedAt,
+      startedAt,
       progressAtPause: null,
-      nowPlayingId: room.nowPlaying.id,
-    })
-  })
+      nowPlayingId: s.nowPlayingId,
+    });
+  });
 
   // ── pause 이벤트 ──
-  socket.on('pause', () => {
-    console.log(`⏸️  [${nick}] pause → 방 [${roomCode}]`)
-    if (!room.nowPlaying || !room.isPlaying) return
-    room.progressAtPause = (Date.now() - room.startedAt) / 1000
-    room.startedAt = null
-    room.isPlaying = false
-    clearAutoAdvance(room)
+  socket.on('pause', async () => {
+    console.log(`⏸️  [${nick}] pause → 방 [${roomCode}]`);
+    const s = await getRoomState(roomCode);
+    if (!s || !s.nowPlayingId || !s.isPlaying) return;
+    const progressAtPause = (Date.now() - s.startedAt) / 1000;
+    await saveRoomState(roomCode, { ...s, isPlaying: false, startedAt: null, progressAtPause });
+    clearAutoAdvance(roomCode);
     io.to(roomCode).emit('playback_sync', {
       isPlaying: false,
       startedAt: null,
-      progressAtPause: room.progressAtPause,
-      nowPlayingId: room.nowPlaying.id,
-    })
-  })
+      progressAtPause,
+      nowPlayingId: s.nowPlayingId,
+    });
+  });
 
   // ── skip 이벤트 ──
-  socket.on('skip', () => {
-    console.log(`⏭️  [${nick}] skip → 방 [${roomCode}]`)
-    advanceTrack(room, roomCode)
-  })
+  socket.on('skip', async () => {
+    console.log(`⏭️  [${nick}] skip → 방 [${roomCode}]`);
+    await advanceTrack(roomCode);
+  });
 
   // ── switch 이벤트 ──
-  socket.on('switch', ({ trackId }) => {
-    const track = room.library.find((t) => t.id === trackId)
-    if (!track) return socket.emit('error', { code: 'INVALID_TRACK' })
-    room.nowPlaying = track
-    room.startedAt = Date.now()
-    room.isPlaying = true
-    room.progressAtPause = null
-    scheduleAutoAdvance(room)
+  socket.on('switch', async ({ trackId }) => {
+    const s = await getRoomState(roomCode);
+    if (!s) return;
+    const track = s.library.find((t) => t.id === trackId);
+    if (!track) return socket.emit('error', { code: 'INVALID_TRACK' });
+    const startedAt = Date.now();
+    await saveRoomState(roomCode, { ...s, nowPlayingId: trackId, isPlaying: true, startedAt, progressAtPause: null });
+    scheduleAutoAdvance(roomCode);
     io.to(roomCode).emit('track_changed', {
-      nowPlayingId: track.id,
+      nowPlayingId: trackId,
       isPlaying: true,
-      startedAt: room.startedAt,
+      startedAt,
       progressAtPause: null,
-    })
-  })
+    });
+  });
 
   // ── upload_done 이벤트 ──
-  socket.on('upload_done', ({ title, uploaderNick, durationSec, s3Key }) => {
-    const newTrack = { id: Date.now().toString(), title, uploaderNick, durationSec, s3Key }
-    room.library.push(newTrack)
+  socket.on('upload_done', async ({ title, uploaderNick, durationSec, s3Key }) => {
+    const s = await getRoomState(roomCode);
+    if (!s) return;
+    const newTrack = { id: Date.now().toString(), title, uploaderNick, durationSec, s3Key };
+    const library = [...s.library, newTrack];
+    let { nowPlayingId, isPlaying, startedAt, progressAtPause } = s;
+    const wasEmpty = !nowPlayingId;
     // 첫 곡이면 자동으로 재생 시작
-    if (!room.nowPlaying) {
-      room.nowPlaying = newTrack
-      room.startedAt = Date.now()
-      room.isPlaying = true
-      scheduleAutoAdvance(room)
+    if (wasEmpty) {
+      nowPlayingId = newTrack.id;
+      isPlaying = true;
+      startedAt = Date.now();
+      progressAtPause = null;
     }
-    io.to(roomCode).emit('library_update', { library: room.library })
-  })
+    await saveRoomState(roomCode, { library, nowPlayingId, isPlaying, startedAt, progressAtPause });
+    if (wasEmpty) scheduleAutoAdvance(roomCode);
+    io.to(roomCode).emit('library_update', { library });
+  });
 
   // ── 연결 종료 ──
-  socket.on('disconnect', () => {
-    console.log(`🔴 [${nick}] 퇴장 → 방 [${roomCode}]`)
-    room.participants = room.participants.filter((p) => p.id !== socket.id)
-    if (room.participants.length === 0) {
-      clearAutoAdvance(room)
-      rooms.delete(roomCode)
+  socket.on('disconnect', async () => {
+    console.log(`🔴 [${nick}] 퇴장 → 방 [${roomCode}]`);
+    await removeParticipant(roomCode, socket.id);
+    const participants = await getParticipants(roomCode);
+    if (participants.length === 0) {
+      // 마지막 사람이 나가면 방 정리
+      clearAutoAdvance(roomCode);
+      await pubClient.del([roomKey(roomCode), participantsKey(roomCode)]);
     } else {
-      io.to(roomCode).emit('participant_update', { participants: room.participants })
+      io.to(roomCode).emit('participant_update', { participants });
     }
-  })
-})
+  });
+});
 
-// ── 헬퍼: 곡 자동 전환 타이머 ──
-function scheduleAutoAdvance(room) {
-  clearAutoAdvance(room)
-  if (!room.nowPlaying || !room.isPlaying) return
-  const remaining = room.nowPlaying.durationSec * 1000 - (Date.now() - room.startedAt)
-  room.autoAdvanceTimer = setTimeout(() => advanceTrack(room, room.roomCode), remaining)
+// ── 곡 자동 전환 타이머 ──
+// NOTE: 타이머는 이 서버 프로세스 메모리에 존재한다. 다중 서버 환경에선 같은 방에
+//       서버마다 타이머가 걸려 track_changed가 중복 발송될 수 있음
+//       → 추후 Redis 락(SETNX)으로 단일 서버만 타이머를 돌리도록 보완 필요.
+const autoAdvanceTimers = new Map(); // roomCode → setTimeout id
+
+async function scheduleAutoAdvance(roomCode) {
+  clearAutoAdvance(roomCode);
+  const s = await getRoomState(roomCode);
+  if (!s || !s.nowPlayingId || !s.isPlaying) return;
+  const track = s.library.find((t) => t.id === s.nowPlayingId);
+  if (!track) return;
+  const remaining = track.durationSec * 1000 - (Date.now() - s.startedAt);
+  autoAdvanceTimers.set(roomCode, setTimeout(() => advanceTrack(roomCode), Math.max(remaining, 0)));
 }
 
-function clearAutoAdvance(room) {
-  if (room.autoAdvanceTimer) {
-    clearTimeout(room.autoAdvanceTimer)
-    room.autoAdvanceTimer = null
+function clearAutoAdvance(roomCode) {
+  const t = autoAdvanceTimers.get(roomCode);
+  if (t) {
+    clearTimeout(t);
+    autoAdvanceTimers.delete(roomCode);
   }
 }
 
-function advanceTrack(room, roomCode) {
-  const idx = room.library.findIndex((t) => t.id === room.nowPlaying?.id)
-  const next = room.library[idx + 1] ?? null
-  room.nowPlaying = next
-  room.startedAt = next ? Date.now() : null
-  room.isPlaying = !!next
-  room.progressAtPause = null
-  clearAutoAdvance(room)
-  if (next) scheduleAutoAdvance(room)
-  io.to(roomCode).emit('track_changed', {
-    nowPlayingId: next?.id ?? null,
-    isPlaying: room.isPlaying,
-    startedAt: room.startedAt,
+async function advanceTrack(roomCode) {
+  const s = await getRoomState(roomCode);
+  if (!s) return;
+  const idx = s.library.findIndex((t) => t.id === s.nowPlayingId);
+  const next = s.library[idx + 1] ?? null;
+  const startedAt = next ? Date.now() : null;
+  await saveRoomState(roomCode, {
+    ...s,
+    nowPlayingId: next ? next.id : '',
+    isPlaying: !!next,
+    startedAt,
     progressAtPause: null,
-  })
+  });
+  clearAutoAdvance(roomCode);
+  if (next) scheduleAutoAdvance(roomCode);
+  io.to(roomCode).emit('track_changed', {
+    nowPlayingId: next ? next.id : null,
+    isPlaying: !!next,
+    startedAt,
+    progressAtPause: null,
+  });
 }
 
-// 서버 실행
+// ── Redis 연결 및 서버 실행 ──
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => {
-  console.log(`🚀 서버 ${PORT} 포트에서 작동 (웹소켓 포함)`);
-});
+
+async function start() {
+  try {
+    await Promise.all([pubClient.connect(), subClient.connect()]);
+    console.log(`✅ Redis 연결 완료: ${REDIS_URL}`);
+
+    // socket.io 어댑터를 Redis로 교체 → io.to(room).emit() 이 다중 서버에 자동 전파
+    io.adapter(createAdapter(pubClient, subClient));
+    console.log('✅ socket.io Redis 어댑터 적용 완료 (다중 서버 브로드캐스트 활성화)');
+
+    server.listen(PORT, () => {
+      console.log(`🚀 서버 ${PORT} 포트에서 작동 (웹소켓 + Redis)`);
+    });
+  } catch (err) {
+    console.error('❌ Redis 연결 실패, 서버를 시작할 수 없습니다:', err);
+    process.exit(1);
+  }
+}
+
+start();
+
+// state 저장용으로 다른 모듈에서 재사용할 수 있도록 export (추후 분리 대비)
+module.exports = { pubClient };
