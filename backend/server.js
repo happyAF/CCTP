@@ -60,9 +60,10 @@ app.get('/api/upload-url', async (req, res) => {
 });
 
 // ── Redis 방 상태 헬퍼 (HSET/HGET) ──
-// room:{roomCode}              (HASH) 재생 상태: library, nowPlayingId, isPlaying, startedAt, progressAtPause
+// room:{roomCode}              (HASH) 재생 상태: library, nowPlayingId, isPlaying, startedAt, playAt, progressAtPause
 // room:{roomCode}:participants (HASH) socketId → JSON({ nick, isOwner })
 const ROOM_TTL = 60 * 60 * 24; // 24시간: 미사용 방 자동 만료 (좀비 키 방지)
+const PRELOAD_DELAY_MS = 2000;  // 예비 재생: 재생 신호 후 2초 뒤 동시 재생 (버퍼링 여유 + 시차 보정)
 
 const roomKey = (roomCode) => `room:${roomCode}`;
 const participantsKey = (roomCode) => `room:${roomCode}:participants`;
@@ -77,6 +78,7 @@ async function getRoomState(roomCode) {
     nowPlayingId: data.nowPlayingId || null,
     isPlaying: data.isPlaying === '1',
     startedAt: data.startedAt ? Number(data.startedAt) : null,
+    playAt: data.playAt ? Number(data.playAt) : null,
     progressAtPause: data.progressAtPause ? Number(data.progressAtPause) : null,
   };
 }
@@ -88,6 +90,7 @@ async function saveRoomState(roomCode, state) {
     nowPlayingId: state.nowPlayingId ?? '',
     isPlaying: state.isPlaying ? '1' : '0',
     startedAt: state.startedAt != null ? String(state.startedAt) : '',
+    playAt: state.playAt != null ? String(state.playAt) : '',
     progressAtPause: state.progressAtPause != null ? String(state.progressAtPause) : '',
   });
   await pubClient.expire(roomKey(roomCode), ROOM_TTL);
@@ -102,6 +105,7 @@ async function ensureRoom(roomCode) {
     nowPlayingId: '1',
     isPlaying: true,
     startedAt: Date.now(),
+    playAt: null,
     progressAtPause: null,
   });
 }
@@ -157,24 +161,29 @@ io.on('connection', async (socket) => {
     nowPlaying: resolveNowPlaying(state),
     isPlaying: state.isPlaying,
     startedAt: state.startedAt,
+    playAt: state.playAt,
     progressAtPause: state.progressAtPause,
   });
 
   // 방 전체에 참여자 목록 업데이트 브로드캐스트
   io.to(roomCode).emit('participant_update', { participants });
 
-  // ── play 이벤트 ──
+  // ── play 이벤트 (예비 재생: 2초 카운트다운 후 동시 재생) ──
   socket.on('play', async () => {
-    console.log(`▶️  [${nick}] play → 방 [${roomCode}]`);
+    console.log(`▶️  [${nick}] play → 방 [${roomCode}] (${PRELOAD_DELAY_MS}ms 후 동시 재생)`);
     const s = await getRoomState(roomCode);
     if (!s || !s.nowPlayingId) return;
-    // 일시정지 상태에서 재개: 멈췄던 위치부터 시작하도록 startedAt 역산
-    const startedAt = Date.now() - (s.progressAtPause ?? 0) * 1000;
-    await saveRoomState(roomCode, { ...s, isPlaying: true, startedAt, progressAtPause: null });
+    // playAt: 모든 클라이언트가 동시에 재생을 시작할 절대 시각
+    const playAt = Date.now() + PRELOAD_DELAY_MS;
+    // startedAt: playAt 시점에 progressAtPause(멈췄던 위치)가 되도록 역산
+    // → 클라이언트 재생 위치 = (Date.now() - startedAt) / 1000
+    const startedAt = playAt - (s.progressAtPause ?? 0) * 1000;
+    await saveRoomState(roomCode, { ...s, isPlaying: true, startedAt, playAt, progressAtPause: null });
     scheduleAutoAdvance(roomCode);
     io.to(roomCode).emit('playback_sync', {
       isPlaying: true,
       startedAt,
+      playAt,
       progressAtPause: null,
       nowPlayingId: s.nowPlayingId,
     });
@@ -186,11 +195,12 @@ io.on('connection', async (socket) => {
     const s = await getRoomState(roomCode);
     if (!s || !s.nowPlayingId || !s.isPlaying) return;
     const progressAtPause = (Date.now() - s.startedAt) / 1000;
-    await saveRoomState(roomCode, { ...s, isPlaying: false, startedAt: null, progressAtPause });
+    await saveRoomState(roomCode, { ...s, isPlaying: false, startedAt: null, playAt: null, progressAtPause });
     clearAutoAdvance(roomCode);
     io.to(roomCode).emit('playback_sync', {
       isPlaying: false,
       startedAt: null,
+      playAt: null,
       progressAtPause,
       nowPlayingId: s.nowPlayingId,
     });
@@ -209,7 +219,8 @@ io.on('connection', async (socket) => {
     const track = s.library.find((t) => t.id === trackId);
     if (!track) return socket.emit('error', { code: 'INVALID_TRACK' });
     const startedAt = Date.now();
-    await saveRoomState(roomCode, { ...s, nowPlayingId: trackId, isPlaying: true, startedAt, progressAtPause: null });
+    // 곡 전환은 즉시 재생 (예비 재생 카운트다운 미적용) → playAt null
+    await saveRoomState(roomCode, { ...s, nowPlayingId: trackId, isPlaying: true, startedAt, playAt: null, progressAtPause: null });
     scheduleAutoAdvance(roomCode);
     io.to(roomCode).emit('track_changed', {
       nowPlayingId: trackId,
@@ -225,16 +236,17 @@ io.on('connection', async (socket) => {
     if (!s) return;
     const newTrack = { id: Date.now().toString(), title, uploaderNick, durationSec, s3Key };
     const library = [...s.library, newTrack];
-    let { nowPlayingId, isPlaying, startedAt, progressAtPause } = s;
+    let { nowPlayingId, isPlaying, startedAt, playAt, progressAtPause } = s;
     const wasEmpty = !nowPlayingId;
     // 첫 곡이면 자동으로 재생 시작
     if (wasEmpty) {
       nowPlayingId = newTrack.id;
       isPlaying = true;
       startedAt = Date.now();
+      playAt = null;
       progressAtPause = null;
     }
-    await saveRoomState(roomCode, { library, nowPlayingId, isPlaying, startedAt, progressAtPause });
+    await saveRoomState(roomCode, { library, nowPlayingId, isPlaying, startedAt, playAt, progressAtPause });
     if (wasEmpty) scheduleAutoAdvance(roomCode);
     io.to(roomCode).emit('library_update', { library });
   });
@@ -289,6 +301,7 @@ async function advanceTrack(roomCode) {
     nowPlayingId: next ? next.id : '',
     isPlaying: !!next,
     startedAt,
+    playAt: null,
     progressAtPause: null,
   });
   clearAutoAdvance(roomCode);

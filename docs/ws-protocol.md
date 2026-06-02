@@ -113,6 +113,7 @@ MP3를 S3에 직접 업로드 완료한 뒤, 서버에 트랙 정보를 등록�
     "nowPlaying": { "id": "1", "title": "lofi study beats vol.1", "uploaderNick": "별이", "durationSec": 214, "s3Key": "uploads/111_lofi.mp3" },
     "isPlaying": true,
     "startedAt": 1748390400000,
+    "playAt": null,
     "progressAtPause": null
   }
 }
@@ -120,6 +121,7 @@ MP3를 S3에 직접 업로드 완료한 뒤, 서버에 트랙 정보를 등록�
 
 > `selfId`: 본인의 participant id. 닉네임 중복 시에도 본인 식별 가능.  
 > `startedAt`: 재생 중일 때만 유효. 일시정지 상태이면 `null`.  
+> `playAt`: 예비 재생 게이트 시각(ms). 입장 시점이 `Date.now() < playAt`이면 아직 카운트다운 중이므로 그 시각까지 버퍼링만 하고 대기. 이미 재생 중이면 과거값이거나 `null`. (아래 `playback_sync` 설명 참고)  
 > `progressAtPause`: 일시정지 중일 때 멈춘 위치(초). 재생 중이면 `null`.
 
 일시정지 상태 예시:
@@ -152,7 +154,8 @@ MP3를 S3에 직접 업로드 완료한 뒤, 서버에 트랙 정보를 등록�
   "type": "playback_sync",
   "payload": {
     "isPlaying": true,
-    "startedAt": 1748390400000,
+    "startedAt": 1748390402000,
+    "playAt": 1748390402000,
     "progressAtPause": null,
     "nowPlayingId": "1"
   }
@@ -166,6 +169,7 @@ MP3를 S3에 직접 업로드 완료한 뒤, 서버에 트랙 정보를 등록�
   "payload": {
     "isPlaying": false,
     "startedAt": null,
+    "playAt": null,
     "progressAtPause": 42,
     "nowPlayingId": "1"
   }
@@ -174,6 +178,19 @@ MP3를 S3에 직접 업로드 완료한 뒤, 서버에 트랙 정보를 등록�
 
 > 클라이언트에서 현재 재생 위치 계산: `progressSec = (Date.now() - startedAt) / 1000`  
 > absolute time 방식이므로 주기적 동기화 불필요.
+
+#### 예비 재생 (Preload & Ready) — `playAt`
+
+`play` 이벤트 수신 시 서버는 **즉시 재생하지 않고** `playAt = now() + 2000ms`를 계산해 브로드캐스트한다.
+모든 클라이언트가 2초간 버퍼링하고, `playAt` 시각에 **동시에** 재생을 시작해 네트워크 시차로 인한 오차를 제거한다.
+
+- `startedAt = playAt - progressAtPause * 1000` 으로 역산됨 → `playAt` 시점에 정확히 멈췄던 위치가 되도록 보정.
+- 클라이언트 동작:
+  1. `playback_sync`(또는 `room_state`) 수신 시 `playAt`이 미래(`Date.now() < playAt`)면 → `<audio>` 버퍼링 + "준비 중..." UI, 소리는 내지 않음
+  2. `audio.currentTime = (playAt - startedAt) / 1000` 로 시킹
+  3. `playAt - Date.now()` ms 뒤에 `audio.play()` 예약 (`setTimeout`)
+  4. `playAt`이 이미 과거면(지각 입장 등) → 즉시 `currentTime = (Date.now() - startedAt) / 1000` 후 재생
+- `pause` / `switch` / `skip` / 곡 자동 전환 시 `playAt`은 `null` (예비 재생은 `play` 재개에만 적용. 곡 전환 즉시 재생은 v1 정책).
 
 ### `track_changed`
 `skip` / `switch` / 곡 자동 전환 시 전송.
