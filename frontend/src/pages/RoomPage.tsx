@@ -4,6 +4,7 @@ import type { RoomState, Track } from '../types'
 import Sidebar from '../components/Sidebar'
 import NowPlaying from '../components/NowPlaying'
 import Library from '../components/Library'
+import { io, Socket } from 'socket.io-client'
 
 const MOCK_LIBRARY: Track[] = [
   { id: '1', title: 'lofi study beats vol.1', uploaderNick: '별이', durationSec: 214, s3Key:'' },
@@ -22,6 +23,7 @@ const MOCK_PARTICIPANTS = [
 export default function RoomPage() {
   const { roomCode = '' } = useParams<{ roomCode: string }>()
   const navigate = useNavigate()
+  const socketRef = useRef<Socket | null>(null)
   const myNick = localStorage.getItem('nick') || '익명'
   const amIOwner = localStorage.getItem('ownerRoom') === roomCode
 
@@ -51,6 +53,28 @@ export default function RoomPage() {
     if (!localStorage.getItem('nick')) navigate('/')
   }, [navigate])
 
+  useEffect(() => {
+  const BACKEND = import.meta.env.VITE_API_URL ?? 'http://localhost:3000'
+  const socket = io(BACKEND)
+  socketRef.current = socket
+
+  socket.on('connect', () => {
+    console.log('✅ 소켓 연결됨:', socket.id)
+    socket.emit('join_room', roomCode)
+  })
+
+  socket.on('receive_action', (data) => {
+    console.log('📨 receive_action 수신:', data)
+    // 나중에 여기서 재생/일시정지 상태 동기화
+  })
+
+  socket.on('disconnect', () => {
+    console.log('❌ 소켓 연결 끊김')
+  })
+
+  return () => { socket.disconnect() }
+}, [roomCode])
+
   // Progress ticker
   useEffect(() => {
     if (timerRef.current) clearInterval(timerRef.current)
@@ -72,8 +96,14 @@ export default function RoomPage() {
     return () => { if (timerRef.current) clearInterval(timerRef.current) }
   }, [room.isPlaying, room.nowPlaying?.id])
 
-  function handlePlay() { setRoom((p) => ({ ...p, isPlaying: true })) }
-  function handlePause() { setRoom((p) => ({ ...p, isPlaying: false })) }
+  function handlePlay() {
+  setRoom((p) => ({ ...p, isPlaying: true }))
+  socketRef.current?.emit('send_action', { roomCode, action: 'play' })
+}
+function handlePause() {
+  setRoom((p) => ({ ...p, isPlaying: false }))
+  socketRef.current?.emit('send_action', { roomCode, action: 'pause' })
+}
   function handleSkip() {
     setRoom((prev) => {
       const idx = prev.library.findIndex((t) => t.id === prev.nowPlaying?.id)
