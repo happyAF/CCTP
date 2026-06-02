@@ -65,7 +65,11 @@ export default function RoomPage() {
 
   socket.on('receive_action', (data) => {
     console.log('📨 receive_action 수신:', data)
-    // 나중에 여기서 재생/일시정지 상태 동기화
+    if (data.action === 'play') {
+      setRoom((p) => ({ ...p, isPlaying: true }))
+    } else if (data.action === 'pause') {
+      setRoom((p) => ({ ...p, isPlaying: false }))
+    }
   })
 
   socket.on('disconnect', () => {
