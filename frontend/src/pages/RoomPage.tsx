@@ -4,6 +4,7 @@ import type { RoomState, Track } from '../types'
 import Sidebar from '../components/Sidebar'
 import NowPlaying from '../components/NowPlaying'
 import Library from '../components/Library'
+import { io, Socket } from 'socket.io-client'
 
 const MOCK_LIBRARY: Track[] = [
   { id: '1', title: 'lofi study beats vol.1', uploaderNick: '별이', durationSec: 214, s3Key:'' },
@@ -22,6 +23,7 @@ const MOCK_PARTICIPANTS = [
 export default function RoomPage() {
   const { roomCode = '' } = useParams<{ roomCode: string }>()
   const navigate = useNavigate()
+  const socketRef = useRef<Socket | null>(null)
   const myNick = localStorage.getItem('nick') || '익명'
   const amIOwner = localStorage.getItem('ownerRoom') === roomCode
 
@@ -51,6 +53,65 @@ export default function RoomPage() {
     if (!localStorage.getItem('nick')) navigate('/')
   }, [navigate])
 
+  useEffect(() => {
+    if (!roomCode) return
+
+    const BACKEND = import.meta.env.VITE_API_URL ?? 'http://localhost:3000'
+
+    // 연결 시 query로 roomCode와 nick을 주입 → 서버가 join_room 없이 바로 방 배정
+    const socket = io(BACKEND, {
+      query: { roomCode, nick: myNick }
+    })
+    socketRef.current = socket
+
+    // 입장 직후 방 전체 상태 수신 (중간 진입자 동기화 핵심)
+    socket.on('room_state', (state) => {
+      console.log('🏠 방 전체 상태 수신:', state)
+      // startedAt(절대 시각)으로 현재 재생 위치 계산
+      const progressSec = state.isPlaying
+        ? Math.floor((Date.now() - state.startedAt) / 1000)
+        : (state.progressAtPause ?? 0)
+      setRoom((prev) => ({
+        ...prev,
+        participants: state.participants,
+        library: state.library,
+        nowPlaying: state.nowPlaying,
+        isPlaying: state.isPlaying,
+        progressSec,
+      }))
+    })
+
+    // 유저 입장/퇴장 시 참여자 명단 업데이트
+    socket.on('participant_update', ({ participants }) => {
+      console.log('👥 참여자 명단 업데이트:', participants)
+      setRoom((p) => ({ ...p, participants }))
+    })
+
+    // 재생/일시정지 동기화
+    socket.on('playback_sync', (data) => {
+      console.log('📨 playback_sync 수신:', data)
+      const progressSec = data.isPlaying
+        ? Math.floor((Date.now() - data.startedAt) / 1000)
+        : (data.progressAtPause ?? 0)
+      setRoom((p) => ({ ...p, isPlaying: data.isPlaying, progressSec }))
+    })
+
+    // 곡 전환 동기화 (skip / switch / 자동 전환)
+    socket.on('track_changed', (data) => {
+      console.log('🎵 track_changed 수신:', data)
+      setRoom((prev) => {
+        const next = prev.library.find((t) => t.id === data.nowPlayingId) ?? null
+        return { ...prev, nowPlaying: next, progressSec: 0, isPlaying: data.isPlaying }
+      })
+    })
+
+    socket.on('disconnect', () => {
+      console.log('❌ 소켓 연결 끊김')
+    })
+
+    return () => { socket.disconnect() }
+  }, [roomCode])
+
   // Progress ticker
   useEffect(() => {
     if (timerRef.current) clearInterval(timerRef.current)
@@ -72,17 +133,18 @@ export default function RoomPage() {
     return () => { if (timerRef.current) clearInterval(timerRef.current) }
   }, [room.isPlaying, room.nowPlaying?.id])
 
-  function handlePlay() { setRoom((p) => ({ ...p, isPlaying: true })) }
-  function handlePause() { setRoom((p) => ({ ...p, isPlaying: false })) }
+  // 서버한테 요청만 보내고, 상태 변경은 서버가 보내는 playback_sync/track_changed를 받아서 처리
+  function handlePlay() {
+    socketRef.current?.emit('play')
+  }
+  function handlePause() {
+    socketRef.current?.emit('pause')
+  }
   function handleSkip() {
-    setRoom((prev) => {
-      const idx = prev.library.findIndex((t) => t.id === prev.nowPlaying?.id)
-      const next = prev.library[idx + 1] ?? null
-      return { ...prev, nowPlaying: next, progressSec: 0, isPlaying: !!next }
-    })
+    socketRef.current?.emit('skip')
   }
   function handleSwitch(track: Track) {
-    setRoom((prev) => ({ ...prev, nowPlaying: track, progressSec: 0, isPlaying: true }))
+    socketRef.current?.emit('switch', { trackId: track.id })
   }
   async function handleUpload(file: File) {
     const apiUrl = import.meta.env.VITE_API_URL ?? 'http://localhost:3000'
