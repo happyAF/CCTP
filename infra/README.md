@@ -4,44 +4,46 @@ Docker, AWS, 배포 담당.
 
 ---
 
-## 책임 영역
+## 🚀 배포 정보
 
-- Docker 이미지 빌드 (frontend / backend / Redis)
-- AWS 셋업 — EC2, S3, ELB, IAM
-- docker-compose 로컬 환경
-- Auto-scaling 설정 + 부하 테스트
-- 모니터링 대시보드 / 측정 리포트
+**Live URL**:
+- 프론트엔드: http://13.211.159.178:8080
+- 백엔드 API: http://13.211.159.178:3000
+
+**환경**:
+- AWS EC2 (`t3.small`, Ubuntu 22.04)
+- Docker + Docker Compose
+- AWS S3 (미디어 저장)
+- Redis (Socket.io 어댑터, 멀티서버 동기화 기반)
 
 ---
 
 ## 진척 상황
 
-### ✅ 완료 (5/19)
+### ✅ 완료
 - [x] AWS 계정 + IAM 사용자 + 액세스 키
 - [x] AWS CLI 설치 + 로그인
 - [x] S3 버킷 생성 (`cctp-media-happyaf`)
-- [x] Docker Desktop 설치
+- [x] Docker Desktop (로컬 개발)
+- [x] **백엔드 Dockerfile**
+- [x] **프론트엔드 Dockerfile** (Vite 멀티스테이지 → nginx)
+- [x] **nginx SPA 라우팅 설정**
+- [x] **docker-compose.yml** (frontend + backend + redis 통합)
+- [x] 로컬 통합 동작 확인
+- [x] **EC2 인스턴스 생성 + 배포**
+- [x] **보안 그룹 설정** (22/80/3000/8080)
+- [x] **외부 접속 동작 확인**
 
-### ✅ 완료 (5/25)
-- [x] **백엔드 Dockerfile** (`backend/Dockerfile`)
-- [x] **백엔드 컨테이너 동작 확인** (S3 Presigned URL 발급 OK)
+### 🚧 남은 작업 (~6/7)
+- [ ] S3 CORS 설정 (프론트에서 직접 PUT 시작 시 필요)
+- [ ] 통합 데모 시나리오 테스트 (방 2개, 음악 동기화)
+- [ ] 보고서 인프라 섹션 작성
+- [ ] 데모 영상 인프라 파트 촬영
 
-### ✅ 완료 (오늘)
-- [x] **프론트엔드 Dockerfile** — Vite + React, 멀티스테이지 빌드 → nginx 정적 서빙
-- [x] **nginx SPA 라우팅 설정** (`frontend/nginx.conf`)
-- [x] **docker-compose.yml** — backend + frontend + redis 통합 실행
-- [x] **로컬 통합 환경 완성** — `docker compose up` 한 번에 3개 컨테이너 다 뜸
-- [x] Redis 연결 + Socket.io Redis 어댑터 동작 확인
-
-### 🚧 다음 작업
-- [ ] S3 CORS 설정 (브라우저에서 직접 PUT 하려면 필수)
-- [ ] EC2 인스턴스 셋업 + Docker 설치
-- [ ] EC2에 docker-compose 배포
-
-### 📋 확장 목표
-- [ ] Load Balancer + 멀티 EC2
+### 📋 확장 목표 (시간 되면)
+- [ ] Multi-EC2 + Load Balancer
 - [ ] Auto-scaling
-- [ ] 모니터링 대시보드
+- [ ] CloudWatch 모니터링
 
 ---
 
@@ -53,17 +55,48 @@ Docker, AWS, 배포 담당.
 | 계정 ID | `586199468759` |
 | IAM 로그인 URL | `https://586199468759.signin.aws.amazon.com/console` |
 | S3 버킷 | `cctp-media-happyaf` |
+| EC2 인스턴스 | `cctp-server` (t3.small, Ubuntu 22.04) |
+| EC2 퍼블릭 IP | `13.211.159.178` |
+| 보안 그룹 | `cctp-sg` (22, 80, 3000, 8080 인바운드) |
+| 키 페어 | `cctp-key.pem` |
 
 ---
 
-## 로컬 개발 환경 셋업 (조원용 가이드)
+## 시스템 아키텍처
+
+```
+        [ 사용자 브라우저 ]
+                ↓
+       http://13.211.159.178:8080
+                ↓
+┌───────────── EC2 (t3.small) ─────────────┐
+│                                          │
+│   ┌──────────┐  ┌──────────┐  ┌───────┐ │
+│   │ frontend │  │ backend  │  │ redis │ │
+│   │ (nginx)  │──│(Node.js +│──│       │ │
+│   │  :80     │  │socket.io)│  │ :6379 │ │
+│   │          │  │  :3000   │  │       │ │
+│   └──────────┘  └────┬─────┘  └───────┘ │
+│                      │                   │
+└──────────────────────┼───────────────────┘
+                       │
+                       ▼
+                  ┌─────────┐
+                  │ AWS S3  │
+                  │(미디어) │
+                  └─────────┘
+```
+
+---
+
+## 로컬 개발 환경 셋업 (조원용)
 
 ### 필수 설치
 - [Docker Desktop](https://www.docker.com/products/docker-desktop/)
-- [AWS CLI v2](https://awscli.amazonaws.com/AWSCLIV2.msi) (개별 S3 조작용)
-- Git Bash
+- Git Bash (Windows)
+- (선택) [AWS CLI v2](https://awscli.amazonaws.com/AWSCLIV2.msi) — 개별 S3 조작용
 
-### `.env` 파일 준비 (`backend/.env`)
+### `backend/.env` 준비
 
 ```env
 PORT=3000
@@ -74,103 +107,138 @@ AWS_S3_BUCKET_NAME=cctp-media-happyaf
 REDIS_URL=redis://redis:6379
 ```
 
-⚠️ `.env`는 절대 커밋 금지
+⚠️ `.env`는 절대 커밋 금지 (gitignore 등록됨)
 
----
-
-## docker-compose 사용법
-
-### 전체 환경 한 번에 띄우기
+### 실행
 
 ```bash
-cd infra
+# 레포 루트에서
 docker compose up --build
 ```
 
-3개 컨테이너 동시 실행:
-- **redis** (port 6379) — Socket.io 어댑터용
-- **backend** (port 3000) — Node.js + Express + Socket.io
-- **frontend** (port 8080) — Vite + React 빌드 → nginx 서빙
+- 프론트: http://localhost:8080
+- API: http://localhost:3000/api/upload-url?filename=test.mp3
 
-### 백그라운드 실행
-
-```bash
-docker compose up -d --build
-```
-
-### 로그 보기
-
-```bash
-docker compose logs -f          # 전체
-docker compose logs -f backend  # 특정 서비스만
-```
-
-### 컨테이너 중지
+### 종료
 
 ```bash
 docker compose down
-```
-
-### 완전 초기화 (이미지까지 삭제)
-
-```bash
-docker compose down --rmi all -v
+docker compose down -v  # Redis 데이터까지 삭제
 ```
 
 ---
 
-## 개별 동작 확인
+## EC2 배포 가이드
 
-### 백엔드만 빌드/실행
+### 1. EC2 인스턴스 사양
+- AMI: Ubuntu 22.04 LTS
+- 유형: t3.small (RAM 2GB)
+- 스토리지: 20GB gp3
+- 키 페어: RSA, .pem
+
+### 2. 보안 그룹
+| 포트 | 용도 |
+|---|---|
+| 22 | SSH |
+| 80 | (예비) |
+| 3000 | 백엔드 API |
+| 8080 | 프론트엔드 |
+
+### 3. SSH 접속
 ```bash
-cd backend
-docker build -t cctp-backend .
-docker run -p 3000:3000 --env-file .env cctp-backend
+chmod 400 cctp-key.pem
+ssh -i cctp-key.pem ubuntu@13.211.159.178
 ```
 
-### 프론트엔드만 빌드/실행
+### 4. EC2 환경 셋업
 ```bash
-cd frontend
-docker build -t cctp-frontend .
-docker run -p 8080:80 cctp-frontend
+# 시스템 업데이트
+sudo apt-get update && sudo apt-get upgrade -y
+
+# Docker 설치
+curl -fsSL https://get.docker.com -o get-docker.sh
+sudo sh get-docker.sh
+sudo usermod -aG docker ubuntu
+exit  # 재접속 필요
+
+# 다시 SSH 접속 후
+docker --version
+docker compose version
 ```
 
-### 동작 확인 URL
-- 프론트엔드: `http://localhost:8080`
-- 백엔드 API: `http://localhost:3000/api/upload-url?filename=test.mp3`
-- (응답으로 S3 Presigned URL이 JSON 형식으로 나와야 정상)
+### 5. 레포 clone + 실행
+```bash
+git clone https://github.com/happyAF/CCTP.git
+cd CCTP
+
+# .env 작성
+nano backend/.env  # 위 형식 그대로
+
+# 빌드 + 실행 (백그라운드)
+docker compose up --build -d
+
+# 상태 확인
+docker compose ps
+docker compose logs -f
+```
+
+### 6. 외부 접속
+브라우저에서 EC2 퍼블릭 IP로:
+- http://13.211.159.178:8080
+- http://13.211.159.178:3000/api/upload-url?filename=test.mp3
 
 ---
 
-## S3 CLI 사용법
+## 컨테이너 관리 명령어
 
 ```bash
-# 업로드
-aws s3 cp <로컬> s3://cctp-media-happyaf/<S3경로>
+# 상태 보기
+docker compose ps
 
-# 목록
-aws s3 ls s3://cctp-media-happyaf/
+# 로그 보기 (실시간)
+docker compose logs -f
+docker compose logs -f backend   # 특정 서비스만
 
-# 다운로드
-aws s3 cp s3://cctp-media-happyaf/<S3경로> <로컬>
+# 재시작
+docker compose restart
+docker compose restart backend
 
-# 삭제
-aws s3 rm s3://cctp-media-happyaf/<S3경로>
+# 코드 업데이트 후 재배포
+git pull
+docker compose up --build -d
+
+# 완전 종료
+docker compose down
 ```
 
 ---
 
 ## ⚠️ 보안
 
-- 액세스 키, `.env` 파일은 절대 GitHub 커밋 금지
-- `.gitignore`에 다 등록되어 있음
+- 액세스 키, `.env`, `.pem` 파일은 절대 GitHub 커밋 금지
+- `.gitignore`에 다 등록됨
 - 키가 노출되면 즉시 AWS 콘솔에서 비활성화 + 재발급
-- 비밀값은 디스코드 비밀 채널이나 별도 안전한 채널로 공유
+- EC2 SSH 키는 별도 안전한 곳에 보관
+- 발표/평가 끝나면 EC2 인스턴스 중지 또는 종료 (비용 절감)
 
 ---
 
-## 회의 때 결정 / 합의 필요한 사항
+## 트러블슈팅 (실제 겪은 이슈)
 
-1. S3 CORS 정책 — A가 프론트에서 직접 PUT 호출 시작하기 전에 설정 필요
-2. EC2 인스턴스 사양 — t3.small 정도? (프리티어 + 크레딧으로 충분)
-3. 배포 방식 — EC2에 git pull + docker compose up 으로 갈지, 별도 자동화할지
+### Docker Desktop 안 켜져있음 → 빌드 실패
+→ 시작 메뉴에서 Docker Desktop 실행
+
+### 컨테이너 이름 충돌 (`already in use`)
+→ `docker rm -f cctp-redis cctp-backend cctp-frontend`
+
+### EC2 SSH 접속 안 됨 (Permission denied)
+→ `.pem` 파일 권한 잠그기: `chmod 400 cctp-key.pem`
+
+### EC2 외부 접속 안 됨
+→ 보안 그룹 인바운드 규칙 확인 (3000, 8080 열려있는지)
+
+### Redis 연결 실패 (`ECONNREFUSED 127.0.0.1:6379`)
+→ `.env`의 `REDIS_URL`을 `redis://redis:6379`로 (컨테이너 네트워크에선 서비스명 사용)
+
+### npm 빌드 메모리 부족 (EC2)
+→ t2.micro로는 빠듯. t3.small 이상 권장
