@@ -1,5 +1,5 @@
 # 로컬 개발용 docker-compose
-# backend + Redis 를 한 번에 띄워 동기화(Scale-out) 동작을 검증한다.
+# frontend + backend + Redis 를 한 번에 띄워 통합 동작을 검증한다.
 #
 # 사용법:
 #   docker compose up --build        # 빌드 + 실행
@@ -37,6 +37,15 @@ services:
     depends_on:
       redis:
         condition: service_healthy   # Redis 가 ready 된 뒤에 backend 기동
+    restart: unless-stopped
+
+  frontend:
+    build: ./frontend
+    container_name: cctp-frontend
+    ports:
+      - "8080:80"
+    depends_on:
+      - backend
     restart: unless-stopped
 
 volumes:
