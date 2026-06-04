@@ -3,7 +3,7 @@ const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
 const cors = require('cors');
-const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
+const { S3Client, PutObjectCommand, GetObjectCommand } = require('@aws-sdk/client-s3');
 const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
 const { createClient } = require('redis');
 const { createAdapter } = require('@socket.io/redis-adapter');
@@ -35,6 +35,8 @@ const s3Client = new S3Client({
     accessKeyId: process.env.AWS_ACCESS_KEY_ID,
     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
   },
+  // SDK v3 기본 CRC32 체크섬이 presigned URL 직렬화 파이프라인을 깨뜨림 → 필요할 때만으로 변경
+  requestChecksumCalculation: 'WHEN_REQUIRED',
 });
 
 // 클라이언트가 S3 티켓(URL)을 요청하는 API
@@ -55,6 +57,25 @@ app.get('/api/upload-url', async (req, res) => {
     res.json({ uploadUrl });
   } catch (error) {
     console.error('S3 Presigned URL 생성 실패:', error);
+    res.status(500).json({ error: 'URL 생성에 실패했습니다.' });
+  }
+});
+
+// 곡 재생용 presigned GET URL 발급 (3600초 유효)
+app.get('/api/play-url', async (req, res) => {
+  try {
+    const { s3Key } = req.query;
+    if (!s3Key) return res.status(400).json({ error: 's3Key가 필요합니다.' });
+
+    const command = new GetObjectCommand({
+      Bucket: process.env.AWS_S3_BUCKET_NAME,
+      Key: s3Key,
+    });
+
+    const playUrl = await getSignedUrl(s3Client, command, { expiresIn: 3600 });
+    res.json({ playUrl });
+  } catch (error) {
+    console.error('play-url 생성 실패:', error);
     res.status(500).json({ error: 'URL 생성에 실패했습니다.' });
   }
 });
