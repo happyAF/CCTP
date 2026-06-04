@@ -145,7 +145,9 @@ export default function RoomPage() {
   useEffect(() => {
     if (!roomCode) return
 
-    const BACKEND = import.meta.env.VITE_API_URL ?? 'http://localhost:3000'
+    const BACKEND = import.meta.env.VITE_API_URL ?? `${location.protocol}//${location.hostname}:3000`
+
+    // 연결 시 query로 roomCode와 nick을 주입 → 서버가 join_room 없이 바로 방 배정
     const socket = io(BACKEND, {
       query: { roomCode, nick: myNick }
     })
@@ -260,7 +262,7 @@ export default function RoomPage() {
   }
 
   async function handleUpload(file: File) {
-    const apiUrl = import.meta.env.VITE_API_URL ?? 'http://localhost:3000'
+    const apiUrl = import.meta.env.VITE_API_URL ?? `${location.protocol}//${location.hostname}:3000`
 
     // 1. 백엔드에서 S3 presigned PUT URL 발급
     const res = await fetch(`${apiUrl}/api/upload-url?filename=${encodeURIComponent(file.name)}`)

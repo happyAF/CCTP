@@ -35,7 +35,8 @@ const s3Client = new S3Client({
     accessKeyId: process.env.AWS_ACCESS_KEY_ID,
     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
   },
-  // SDK v3 기본 CRC32 체크섬이 presigned URL 직렬화 파이프라인을 깨뜨림 → 필요할 때만으로 변경
+  // AWS SDK v3(3.729+)는 기본으로 CRC32 체크섬을 presigned URL에 박는다.
+  // 브라우저 PUT 업로드 시 본문 체크섬 불일치로 403이 나므로 "필요할 때만"으로 변경.
   requestChecksumCalculation: 'WHEN_REQUIRED',
 });
 
