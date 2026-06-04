@@ -121,7 +121,7 @@ export default function RoomPage() {
 
   // ── presigned GET URL 발급 ──
   async function fetchPlayUrl(s3Key: string): Promise<string> {
-    const apiUrl = import.meta.env.VITE_API_URL ?? 'http://localhost:3000'
+    const apiUrl = import.meta.env.VITE_API_URL ?? `${location.protocol}//${location.hostname}:3000`
     const res = await fetch(`${apiUrl}/api/play-url?s3Key=${encodeURIComponent(s3Key)}`)
     if (!res.ok) throw new Error('play-url 발급 실패')
     const { playUrl } = await res.json() as { playUrl: string }
