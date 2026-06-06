@@ -17,7 +17,7 @@
 |------|------|----------|
 | 김재혁 | 202155535 | Backend — WebSocket 서버(Socket.io), Redis Pub/Sub 어댑터, S3 Presigned URL API, 재생 동기화 로직 |
 | 서혜민 | 202355544 | Frontend — React/TypeScript UI, 음악 플레이어, 방 입장·업로드 화면, WebSocket 클라이언트 연동 |
-| [이름] | [학번] | Infra — Docker/Docker Compose 구성, AWS EC2 배포, S3 버킷·IAM 설정 |
+| 원재연 | [학번] | Infra — Docker/Docker Compose 구성, AWS EC2 배포, S3 버킷·IAM 설정 |
 
 ---
 
@@ -199,7 +199,7 @@ CCTP/
 
 1. 브라우저에서 배포된 서비스 URL에 접속
 2. 닉네임 입력 후 **[방 만들기]** 또는 **[방 참여하기]** 선택
-3. 방 코드 또는 초대 링크를 팀원에게 공유
+3. 방 코드를 팀원에게 공유
 4. MP3 파일 업로드 → 공용 라이브러리에 자동 등록
 5. 곡을 클릭해 재생 — 방에 있는 모든 인원이 동시에 같은 음악을 듣습니다
 

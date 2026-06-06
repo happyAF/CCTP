@@ -149,7 +149,8 @@ export default function RoomPage() {
 
     // 연결 시 query로 roomCode와 nick을 주입 → 서버가 join_room 없이 바로 방 배정
     const socket = io(BACKEND, {
-      query: { roomCode, nick: myNick }
+      query: { roomCode, nick: myNick },
+      transports: ['websocket'],  // polling 단계 없이 WS 직접 연결 → nginx round-robin 동작
     })
     socketRef.current = socket
 

@@ -1,12 +1,16 @@
 require('dotenv').config();
 const express = require('express');
 const http = require('http');
+const os = require('os');
 const { Server } = require('socket.io');
 const cors = require('cors');
 const { S3Client, PutObjectCommand, GetObjectCommand } = require('@aws-sdk/client-s3');
 const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
 const { createClient } = require('redis');
 const { createAdapter } = require('@socket.io/redis-adapter');
+
+// 컨테이너마다 다른 hostname → 로그에서 어느 서버가 처리하는지 식별
+const SERVER_ID = os.hostname().slice(0, 8);
 
 const app = express();
 app.use(cors());
@@ -172,7 +176,7 @@ io.on('connection', async (socket) => {
 
   const state = await getRoomState(roomCode);
   const participants = await getParticipants(roomCode);
-  console.log(`🟢 [${nick}] 입장 → 방 [${roomCode}] (현재 ${participants.length}명)${isOwner ? ' 👑방장' : ''}`);
+  console.log(`🟢 [${SERVER_ID}] [${nick}] 입장 → 방 [${roomCode}] (현재 ${participants.length}명)${isOwner ? ' 👑방장' : ''}`);
 
   // 입장 직후 본인에게만 현재 방 전체 상태 전송 (중간 진입자 동기화 핵심)
   socket.emit('room_state', {
@@ -275,7 +279,7 @@ io.on('connection', async (socket) => {
 
   // ── 연결 종료 ──
   socket.on('disconnect', async () => {
-    console.log(`🔴 [${nick}] 퇴장 → 방 [${roomCode}]`);
+    console.log(`🔴 [${SERVER_ID}] [${nick}] 퇴장 → 방 [${roomCode}]`);
     await removeParticipant(roomCode, socket.id);
     const participants = await getParticipants(roomCode);
     if (participants.length === 0) {
@@ -349,7 +353,7 @@ async function start() {
     console.log('✅ socket.io Redis 어댑터 적용 완료 (다중 서버 브로드캐스트 활성화)');
 
     server.listen(PORT, () => {
-      console.log(`🚀 서버 ${PORT} 포트에서 작동 (웹소켓 + Redis)`);
+      console.log(`🚀 [${SERVER_ID}] 서버 ${PORT} 포트에서 작동 (웹소켓 + Redis)`);
     });
   } catch (err) {
     console.error('❌ Redis 연결 실패, 서버를 시작할 수 없습니다:', err);
