@@ -221,6 +221,9 @@ export default function RoomPage() {
           playAt: null,
           progressAtPause: data.progressAtPause ?? null,
         })
+      } else {
+        // 다음 곡 없음(마지막 곡 skip 등) → 재생 정지
+        applyPlayback({ isPlaying: false, startedAt: null, playAt: null, progressAtPause: null })
       }
     })
 
