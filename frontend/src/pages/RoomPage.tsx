@@ -33,8 +33,8 @@ export default function RoomPage() {
   const socketRef = useRef<Socket | null>(null)
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const playTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const myNick = localStorage.getItem('nick') || '익명'
-  const amIOwner = localStorage.getItem('ownerRoom') === roomCode
+  const myNick = sessionStorage.getItem('nick') || '익명'
+  const amIOwner = sessionStorage.getItem('ownerRoom') === roomCode
 
   function buildInitialParticipants() {
     const list = MOCK_PARTICIPANTS.map((p) => ({
@@ -68,7 +68,7 @@ export default function RoomPage() {
   useEffect(() => { roomRef.current = room }, [room])
 
   useEffect(() => {
-    if (!localStorage.getItem('nick')) navigate('/')
+    if (!sessionStorage.getItem('nick')) navigate('/')
   }, [navigate])
 
   // ── 오디오 엘리먼트 초기화 ──

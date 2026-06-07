@@ -18,9 +18,9 @@ export default function EntryPage() {
     if (!nick.trim()) { setError('닉네임을 입력해 주세요.'); return }
     if (mode === 'join' && !joinCode.trim()) { setError('방 코드를 입력해 주세요.'); return }
 
-    localStorage.setItem('nick', nick.trim())
+    sessionStorage.setItem('nick', nick.trim())
     const code = mode === 'create' ? generateRoomCode() : joinCode.trim().toUpperCase()
-    if (mode === 'create') localStorage.setItem('ownerRoom', code)
+    if (mode === 'create') sessionStorage.setItem('ownerRoom', code)
     navigate(`/room/${code}`)
   }
 
