@@ -37,16 +37,37 @@ export default function Sidebar({ roomCode, participants, myNick, onUpload }: Pr
   }
 
   function copyCode() {
-    navigator.clipboard.writeText(roomCode)
-      .then(() => {
-        setPopup('방 코드가 복사됐어요!')
-        setTimeout(() => setPopup(null), 2500)
-      })
-      .catch(() => {
-        setPopup('복사 실패. 직접 선택해 주세요.')
-        setTimeout(() => setPopup(null), 2500)
-      })
+  const onSuccess = () => {
+    setPopup('방 코드가 복사됐어요!')
+    setTimeout(() => setPopup(null), 2500)
   }
+  const onFail = () => {
+    setPopup('복사 실패. 직접 선택해 주세요.')
+    setTimeout(() => setPopup(null), 2500)
+  }
+
+  // 1순위: clipboard API (https / localhost 에서만 동작)
+  if (navigator.clipboard && window.isSecureContext) {
+    navigator.clipboard.writeText(roomCode).then(onSuccess).catch(onFail)
+    return
+  }
+
+  // 폴백: http + IP 환경 (지금 EC2). 임시 textarea 만들어서 execCommand
+  try {
+    const ta = document.createElement('textarea')
+    ta.value = roomCode
+    ta.style.position = 'fixed'
+    ta.style.opacity = '0'
+    document.body.appendChild(ta)
+    ta.focus()
+    ta.select()
+    const ok = document.execCommand('copy')
+    document.body.removeChild(ta)
+    ok ? onSuccess() : onFail()
+  } catch {
+    onFail()
+  }
+}
 
   return (
     <>
