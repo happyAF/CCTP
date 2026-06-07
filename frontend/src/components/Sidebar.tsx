@@ -37,7 +37,15 @@ export default function Sidebar({ roomCode, participants, myNick, onUpload }: Pr
   }
 
   function copyCode() {
-    navigator.clipboard.writeText(roomCode).catch(() => {})
+    navigator.clipboard.writeText(roomCode)
+      .then(() => {
+        setPopup('방 코드가 복사됐어요!')
+        setTimeout(() => setPopup(null), 2500)
+      })
+      .catch(() => {
+        setPopup('복사 실패. 직접 선택해 주세요.')
+        setTimeout(() => setPopup(null), 2500)
+      })
   }
 
   return (

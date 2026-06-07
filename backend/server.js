@@ -122,11 +122,11 @@ async function saveRoomState(roomCode, state) {
 async function ensureRoom(roomCode) {
   if (await pubClient.exists(roomKey(roomCode))) return;
   await saveRoomState(roomCode, {
-    // TODO: 테스트용 더미 트랙. 추후 upload_done으로만 채우도록 변경 예정
-    library: [{ id: '1', title: 'lofi study beats vol.1', durationSec: 214 }],
-    nowPlayingId: '1',
-    isPlaying: true,
-    startedAt: Date.now(),
+    // 빈 라이브러리로 시작 → upload_done으로만 곡이 채워진다
+    library: [],
+    nowPlayingId: '',
+    isPlaying: false,
+    startedAt: null,
     playAt: null,
     progressAtPause: null,
   });
